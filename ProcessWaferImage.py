@@ -31,7 +31,7 @@ SCP_SIZE = 4
 
 # Global font object (loaded once)
 try:
-    GLOBAL_FONT = ImageFont.truetype("arial.ttf", 8) 
+    GLOBAL_FONT = ImageFont.truetype("arial.ttf", 14) 
 except Exception:
     GLOBAL_FONT = ImageFont.load_default()
     logger.warning("Using default font. Arial not found.")
@@ -207,8 +207,7 @@ class ImageAnnotator:
     def toggle_ffd_mode(self):
         """Toggles FFD editing mode."""
         if self.mode == 'ffd_grid':
-            self._commit_ffd_changes()
-            self.set_mode(None)
+            self.set_mode(None) # set_mode will handle the commit via its guard
         else:
             self.set_mode('ffd_grid')
             
