@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 
 # --- Die Names and FFD Patch Size ---
 DIE_NAMES = [
-    "No_NP", "MX_2x2", "MX_3x3", "MX_4x4", "32x16", "Test1",
-    "Oval", "2x2", "3x3", "4x4", "100x4", "Test2",
-    "D130", "D140", "D150", "D160", "D170", "Test3"
+    "0:No_NP", "1:MX_2x2", "2:MX_3x3", "3:MX_4x4", "4:32x16", " :Test1",
+    "5:Oval", "6:2x2", "7:3x3", "8:4x4", "9:100x4", " :Test2",
+    "A:D130", "B:D140", "C:D150", "D:D160", "E:D170", " :Test3"
 ]
 NUM_COLS = 3  
 NUM_ROWS = 6  
@@ -31,7 +31,7 @@ SCP_SIZE = 4
 
 # Global font object (loaded once)
 try:
-    GLOBAL_FONT = ImageFont.truetype("arial.ttf", 14) 
+    GLOBAL_FONT = ImageFont.truetype("arial.ttf", 8) 
 except Exception:
     GLOBAL_FONT = ImageFont.load_default()
     logger.warning("Using default font. Arial not found.")
@@ -419,21 +419,6 @@ class ImageAnnotator:
                 self.committed_grid_items.append(item)
         
                 # 3. Draw the Die Name with Dynamic Indexing
-                
-                #C_shift, R_shift = self.die_origin_shift
-
-                #C_new = C - C_shift
-                #R_new = R - R_shift
-
-                #Die_C = C_new % NUM_COLS
-                
-                # Die_R: Reverse the vertical direction of the repeating pattern
-                #Die_R_raw = R_new % NUM_ROWS
-                #Die_R = NUM_ROWS - 1 - Die_R_raw 
-                
-                #die_index = Die_C * NUM_ROWS + Die_R 
-                #die_name = DIE_NAMES[die_index % len(DIE_NAMES)]
-
                 die_name = self._get_die_name(C, R)
 
                 is_masked = self._is_die_masked(center_x, center_y) 
@@ -444,7 +429,7 @@ class ImageAnnotator:
                 item = self.canvas.create_text(screen_center_x, screen_center_y, 
                                                text=die_name, 
                                                fill=TEXT_COLOR, 
-                                               font=("Arial", 14), 
+                                               font=("Arial", 8), 
                                                anchor=tk.CENTER,
                                                tags="committed_grid")
                 self.committed_grid_items.append(item)
@@ -679,20 +664,6 @@ class ImageAnnotator:
                 
                 if not is_painted_green:
                     total_clean_dies += 1 
-                    
-                    #C_shift, R_shift = self.die_origin_shift
-
-                    #C_new = C - C_shift
-                    #R_new = R - R_shift
-
-                    #Die_C = C_new % NUM_COLS
-                    
-                    # Die_R: Reverse the vertical direction of the repeating pattern
-                    #Die_R_raw = R_new % NUM_ROWS
-                    #Die_R = NUM_ROWS - 1 - Die_R_raw 
-                    
-                    #die_index = Die_C * NUM_ROWS + Die_R 
-                    #die_name = DIE_NAMES[die_index % len(DIE_NAMES)]
 
                     die_name = self._get_die_name(C, R)
                     
@@ -706,21 +677,21 @@ class ImageAnnotator:
         report_lines.append("------------------------------------------------------")
         report_lines.append("\n--- Area Ratio Estimation ---")
         report_lines.append(f"Circle Area: {Area_Circle:,.2f} px²")
-        report_lines.append(f"Mask Area (no dies, inside Circle): {Area_Mask_inside_Circle:,.0f} px²") 
-        report_lines.append(f"Non-masked Area (dies, inside Circle): {Area_Clean:,.2f} px²")
+        report_lines.append(f"Mask Area (No dies, inside Circle): {Area_Mask_inside_Circle:,.0f} px²") 
+        report_lines.append(f"Non-masked Area (Dies, inside Circle): {Area_Clean:,.2f} px²")
         report_lines.append(f"Nominal Die Area (User selected): {Area_Die_Nominal:,.2f} px²")
         report_lines.append(f"Estimated Total Dies: {Ratio_Estimation:.0f} dies") 
         report_lines.append("------------------------------------------------------")
         report_lines.append("\n--- Grid Die Counts ---")
         report_lines.append(f"Total Dies Defined by Mesh in Circle: {total_dies_in_circle}")
-        report_lines.append(f"Total Dies in Masked Area (removed dies): {total_masked_dies}") 
-        report_lines.append(f"Total Dies in Non-masked Area (avilaable dies): {total_clean_dies}") 
+        report_lines.append(f"Total Dies in Masked Area (Removed dies): {total_masked_dies}") 
+        report_lines.append(f"Total Dies in Non-masked Area (Avilaable dies): {total_clean_dies}") 
         report_lines.append("------------------------------------------------------")
         report_lines.append("\n--- Detailed Die Counts (Clean/Unpainted Dies Only) ---")
         report_lines.append("Die Type\t\tCount")
         report_lines.append("-" * 49)
         for name, count in die_counts_clean.items():
-            report_lines.append(f"{name}:\t\t{count}")
+            report_lines.append(f"{name}:\t{count}")
         report_content = "\n".join(report_lines)
         
         try:
@@ -1172,20 +1143,6 @@ class ImageAnnotator:
                     int_points = [(int(p[0]), int(p[1])) for p in polygon]
                     closed_die_line = int_points + [int_points[0]] 
                     temp_draw.line(closed_die_line, fill=PINK_COLOR, width=LINE_THICKNESS)
-
-                    #C_shift, R_shift = self.die_origin_shift
-
-                    #C_new = C - C_shift
-                    #R_new = R - R_shift
-
-                    #Die_C = C_new % NUM_COLS
-                    
-                    # Die_R: Reverse the vertical direction of the repeating pattern
-                    #Die_R_raw = R_new % NUM_ROWS
-                    #Die_R = NUM_ROWS - 1 - Die_R_raw 
-                    
-                    #die_index = Die_C * NUM_ROWS + Die_R 
-                    #die_name = DIE_NAMES[die_index % len(DIE_NAMES)]
 
                     die_name = self._get_die_name(C, R)
                     
