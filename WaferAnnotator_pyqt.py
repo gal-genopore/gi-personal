@@ -268,7 +268,8 @@ class ImageAnnotator(QMainWindow):
             self.rect_start_pos = pos
             rect_item = QGraphicsRectItem(QRectF(pos, pos))
             rect_item.setPen(QPen(QColor('blue'), 2))
-            self.temp_items.append(self.scene.addItem(rect_item))
+            self.scene.addItem(rect_item)
+            self.temp_items.append(rect_item)
 
         elif self.mode == 'mask':
             if not self.circle_geom['radius']:
