@@ -301,9 +301,16 @@ class ImageAnnotator(QMainWindow):
             rect_item = self.temp_items[0]
             rect_item.setRect(QRectF(self.rect_start_pos, pos).normalized())
 
-        elif self.mode == 'mask' and self.last_mask_pos:
-            self.paint_mask_stroke(self.last_mask_pos, pos)
-            self.last_mask_pos = pos
+        elif self.mode == 'mask':
+            self.clear_temp_items()
+            r = self.brush_size / 2.0  # Use scene coordinates for brush size
+            # Create a rectangle centered on the cursor
+            brush_rect = QRectF(pos.x() - r, pos.y() - r, self.brush_size, self.brush_size)
+            item = self.scene.addRect(brush_rect, QPen(QColor('yellow'), 2))
+            self.temp_items.append(item)
+            if self.last_mask_pos: # Check if mouse is pressed
+                self.paint_mask_stroke(self.last_mask_pos, pos)
+                self.last_mask_pos = pos
 
         elif self.mode == 'ffd_grid' and self.active_scp:
             self.super_control_points[self.active_scp] = pos
@@ -517,7 +524,7 @@ class ImageAnnotator(QMainWindow):
     def paint_mask_stroke(self, p1, p2):
         painter = QPainter(self.mask_layer)
         pen = QPen(QColor(0, 255, 0, 128), self.brush_size, Qt.PenStyle.SolidLine,
-                   Qt.PenCapStyle.RoundCap, Qt.PenCapStyle.RoundJoin)
+                   Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
         painter.setPen(pen)
 
         # Apply circle stencil
