@@ -31,7 +31,7 @@ SCP_SIZE = 4
 
 # Global font object (loaded once)
 try:
-    GLOBAL_FONT = ImageFont.truetype("arial.ttf", 14) 
+    GLOBAL_FONT = ImageFont.truetype("arial.ttf", 10) 
 except Exception:
     GLOBAL_FONT = ImageFont.load_default()
     logger.warning("Using default font. Arial not found.")
@@ -336,34 +336,43 @@ class ImageAnnotator:
                 C_s = min(num_patches_c - 1, int(C_s_float)) 
                 R_s = min(num_patches_r - 1, int(R_s_float)) 
 
-                if C == self.Max_C and self.Max_C > 0: 
-                    C_s = num_patches_c - 1
-                if R == self.Max_R and self.Max_R > 0: 
-                    R_s = num_patches_r - 1
+                #if C == self.Max_C and self.Max_C > 0: 
+                #    C_s = num_patches_c - 1
+                #if R == self.Max_R and self.Max_R > 0: 
+                #    R_s = num_patches_r - 1
                 
                 u_local = C_s_float - C_s
                 v_local = R_s_float - R_s
                 
-                if C == self.Max_C and self.Max_C > 0: 
-                    u_local = 1.0
-                if R == self.Max_R and self.Max_R > 0: 
-                    v_local = 1.0
+                #if C == self.Max_C and self.Max_C > 0: 
+                #    u_local = 1.0
+                #if R == self.Max_R and self.Max_R > 0: 
+                #    v_local = 1.0
+
+                u_local = max(0.0, min(1.0, u_local))
+                v_local = max(0.0, min(1.0, v_local))
                 
                 P00 = self.super_control_points.get((C_s, R_s), (0, 0)) 
                 P10 = self.super_control_points.get((C_s + 1, R_s), (W_img, 0)) 
                 P01 = self.super_control_points.get((C_s, R_s + 1), (0, H_img)) 
                 P11 = self.super_control_points.get((C_s + 1, R_s + 1), (W_img, H_img)) 
                 
-                P_u_top_x = (1 - u_local) * P00[0] + u_local * P10[0]
-                P_u_bottom_x = (1 - u_local) * P01[0] + u_local * P11[0]
+                #P_u_top_x = (1 - u_local) * P00[0] + u_local * P10[0]
+                #P_u_bottom_x = (1 - u_local) * P01[0] + u_local * P11[0]
                 
-                P_u_top_y = (1 - u_local) * P00[1] + u_local * P10[1]
-                P_u_bottom_y = (1 - u_local) * P01[1] + u_local * P11[1]
+                #P_u_top_y = (1 - u_local) * P00[1] + u_local * P10[1]
+                #P_u_bottom_y = (1 - u_local) * P01[1] + u_local * P11[1]
+
+                P_u_top = np.array(P00) * (1 - u_local) + np.array(P10) * u_local
+                P_u_bottom = np.array(P01) * (1 - u_local) + np.array(P11) * u_local
                 
-                x_interp = (1 - v_local) * P_u_top_x + v_local * P_u_bottom_x
-                y_interp = (1 - v_local) * P_u_top_y + v_local * P_u_bottom_y
-                
-                self.interpolated_points[(C, R)] = (x_interp, y_interp)
+                #x_interp = (1 - v_local) * P_u_top_x + v_local * P_u_bottom_x
+                #y_interp = (1 - v_local) * P_u_top_y + v_local * P_u_bottom_y
+                P_interp = P_u_top * (1 - v_local) + P_u_bottom * v_local
+
+                #self.interpolated_points[(C, R)] = (x_interp, y_interp)
+                self.interpolated_points[(C, R)] = (P_interp[0], P_interp[1])
+
 
     def _draw_committed_mesh_on_canvas(self):
         """
@@ -428,7 +437,7 @@ class ImageAnnotator:
                 item = self.canvas.create_text(screen_center_x, screen_center_y, 
                                                text=die_name, 
                                                fill=TEXT_COLOR, 
-                                               font=("Arial", 8), 
+                                               font=("Arial", 10), 
                                                anchor=tk.CENTER,
                                                tags="committed_grid")
                 self.committed_grid_items.append(item)
@@ -676,18 +685,18 @@ class ImageAnnotator:
         report_lines.append("------------------------------------------------------")
         report_lines.append("\n--- Area Ratio Estimation ---")
         report_lines.append(f"Circle Area: {Area_Circle:,.2f} px²")
-        report_lines.append(f"Mask Area (No dies, inside Circle): {Area_Mask_inside_Circle:,.0f} px²") 
+        report_lines.append(f"Mask Area (No/Bad dies, inside Circle): {Area_Mask_inside_Circle:,.0f} px²") 
         report_lines.append(f"Non-masked Area (Dies, inside Circle): {Area_Clean:,.2f} px²")
         report_lines.append(f"Nominal Die Area (User selected): {Area_Die_Nominal:,.2f} px²")
         report_lines.append(f"Estimated Total Dies: {Ratio_Estimation:.0f} dies") 
         report_lines.append("------------------------------------------------------")
         report_lines.append("\n--- Grid Die Counts ---")
         report_lines.append(f"Total Dies Defined by Mesh in Circle: {total_dies_in_circle}")
-        report_lines.append(f"Total Dies in Masked Area (Removed dies): {total_masked_dies}") 
-        report_lines.append(f"Total Dies in Non-masked Area (Avilaable dies): {total_clean_dies}") 
+        report_lines.append(f"Total Dies in Masked Area (Bad/Removed dies): {total_masked_dies}") 
+        report_lines.append(f"Total Dies in Non-masked Area (Available dies): {total_clean_dies}") 
         report_lines.append("------------------------------------------------------")
-        report_lines.append("\n--- Detailed Die Counts (Clean/Unpainted Dies Only) ---")
-        report_lines.append("Die Type\t\tCount")
+        report_lines.append("\n--- Detailed Die Counts (Non-masked Dies Only) ---")
+        report_lines.append("Die Type\tCount")
         report_lines.append("-" * 49)
         for name, count in die_counts_clean.items():
             report_lines.append(f"{name}:\t{count}")
