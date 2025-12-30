@@ -1,11 +1,12 @@
-# (Full file - updated _write_minimal_odg to create a correct ODG package with
-# connection points inside the draw:frame and a proper manifest + minimal styles/meta)
+# (Full file - updated to group all drawable elements into a draw:g group inside content.xml
+# and to avoid writing any unnecessary background rectangle)
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import math
 import zipfile
+import io
 import os
-
+import tempfile
 
 # Define the standard size for the geometric glue point anchor
 ANCHOR_RADIUS_BASE = 1.5 
@@ -671,15 +672,13 @@ class PneumaticDesignerApp:
     def _write_minimal_odg(self, odg_path, svg_content, glue_points, svg_width=600, svg_height=400):
         """Create a minimal ODG package containing the SVG and a content.xml that references it.
 
-        Fixes applied to ensure LibreOffice accepts the file:
-         - content.xml is written and referenced in META-INF/manifest.xml
-         - draw:connection-points are placed inside the draw:frame that hosts the image
-           (connection points should be child elements of shapes/frames)
-         - connection-point coordinates are expressed as percentages (draw:position-x/y)
-         - a minimal styles.xml and meta.xml are included to avoid corruption in some LO builds
-         - mimetype is stored uncompressed and is the first entry in the zip
+        Changes made to address:
+         - Grouping: All elements are wrapped inside a draw:g group so the whole symbol
+           behaves as a single grouped object in LibreOffice Draw (connectors will snap to group).
+         - Glue points: Remain inside the frame, and the frame is inside the group.
+         - No background: we do not add any background rectangle. Embedded SVG is expected to be transparent.
+         - Minimal required parts (mimetype first, manifest, content.xml, styles.xml, meta.xml, Pictures/).
         """
-        # Manifest with entries for content.xml, styles.xml, meta.xml and the embedded SVG.
         manifest = f'''<?xml version="1.0" encoding="UTF-8"?>
 <manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0">
   <manifest:file-entry manifest:full-path="/" manifest:media-type="application/vnd.oasis.opendocument.graphics"/>
@@ -690,17 +689,15 @@ class PneumaticDesignerApp:
 </manifest:manifest>'''
 
         # Convert glue points (pixel coords) to percentage positions relative to the SVG dims.
-        # Use draw:position-x and draw:position-y attributes with percent values.
         connection_points_xml = ""
         for idx, (gx, gy) in enumerate(glue_points, start=1):
-            # Clamp and compute percentages
             px = max(0.0, min(100.0, (gx / float(svg_width)) * 100.0))
             py = max(0.0, min(100.0, (gy / float(svg_height)) * 100.0))
-            # Use draw:position-x and draw:position-y (percent values)
-            connection_points_xml += f'            <draw:connection-point draw:name="GP{idx}" draw:position-x="{px:.2f}%" draw:position-y="{py:.2f}%" />\n'
+            connection_points_xml += f'                <draw:connection-point draw:name="GP{idx}" draw:position-x="{px:.2f}%" draw:position-y="{py:.2f}%" />\n'
 
-        # content.xml: put draw:connection-points inside the draw:frame that contains the embedded SVG.
-        # The draw:frame element is a shape-like container where glue points are expected by LibreOffice.
+        # Group wrapper (draw:g) containing a draw:frame with the embedded SVG and the connection points.
+        # Keeping connection points as children of the frame (so Draw recognizes them) while the frame itself
+        # is a child of the group so the whole symbol is grouped.
         content_xml = f'''<?xml version="1.0" encoding="UTF-8"?>
 <office:document-content
     xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
@@ -712,18 +709,22 @@ class PneumaticDesignerApp:
   <office:body>
     <office:drawing>
       <draw:page draw:name="page1">
-        <!-- Frame hosting the SVG picture. Connection points must be inside this frame so Draw recognizes them -->
-        <draw:frame draw:name="diagram-frame" draw:z-index="0" svg:x="0cm" svg:y="0cm" svg:width="{svg_width}px" svg:height="{svg_height}px">
-          <draw:image xlink:href="Pictures/diagram.svg" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>
-          <draw:connection-points>
-{connection_points_xml}          </draw:connection-points>
-        </draw:frame>
+        <!-- Group that represents the whole symbol. Using draw:g per ODF spec -->
+        <draw:g draw:name="symbol-group" draw:z-index="0" svg:x="0cm" svg:y="0cm" svg:width="{svg_width}px" svg:height="{svg_height}px">
+          <!-- Frame hosting the SVG picture. The frame is inside the group so the whole symbol is grouped. -->
+          <draw:frame draw:name="diagram-frame" draw:z-index="0" svg:x="0cm" svg:y="0cm" svg:width="{svg_width}px" svg:height="{svg_height}px">
+            <draw:image xlink:href="Pictures/diagram.svg" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>
+            <!-- Connection points are placed inside the frame so LibreOffice Draw recognizes them -->
+            <draw:connection-points>
+{connection_points_xml}            </draw:connection-points>
+          </draw:frame>
+        </draw:g>
       </draw:page>
     </office:drawing>
   </office:body>
 </office:document-content>'''
 
-        # Minimal styles.xml and meta.xml to make the package less likely to be rejected
+        # Minimal styles.xml and meta.xml
         styles_xml = '''<?xml version="1.0" encoding="UTF-8"?>
 <office:document-styles
     xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
@@ -742,11 +743,9 @@ class PneumaticDesignerApp:
   </office:meta>
 </office:document-meta>'''
 
-        # Create the ODG (zip) file. 'mimetype' must be the first entry and stored (no compression).
+        # Write ODG (zip) with mimetype first and stored (no compression).
         with zipfile.ZipFile(odg_path, mode='w') as zf:
-            # Write mimetype uncompressed as required by ODF
             zf.writestr("mimetype", "application/vnd.oasis.opendocument.graphics", compress_type=zipfile.ZIP_STORED)
-            # Write manifest, content, styles, meta and the picture (SVG)
             zf.writestr("META-INF/manifest.xml", manifest)
             zf.writestr("content.xml", content_xml)
             zf.writestr("styles.xml", styles_xml)
