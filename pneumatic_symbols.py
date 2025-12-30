@@ -2,7 +2,9 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import math
 import zipfile
+import io
 import os
+import tempfile
 
 # Define the standard size for the geometric glue point anchor
 ANCHOR_RADIUS_BASE = 1.5 
@@ -728,17 +730,18 @@ class PneumaticDesignerApp:
         try:
             self._write_minimal_odg(filename, svg_content, glue_points, 
                                     view_x, view_y, view_w, view_h)
-            messagebox.showinfo("Success", f"Saved {os.path.basename(filename)}\n\nThe bounding box is now tightly cropped to the symbol and glue points are active.")
+            messagebox.showinfo("Success", f"Saved {os.path.basename(filename)}\n\nThe glue points are now generated using absolute coordinates for better compatibility.")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save .odg file: {e}")
 
     def _write_minimal_odg(self, odg_path, svg_content, glue_points, view_x, view_y, view_w, view_h):
         """Create a minimal ODG package.
         
-        Changes:
-        1. REMOVED 'draw:g' wrapper. The 'draw:frame' is now the top-level object.
-           This ensures glue points are immediately accessible in LibreOffice.
-        2. Connection points are attached directly to this frame.
+        UPDATES for Compatibility:
+        1. Uses <draw:glue-point> instead of <draw:connection-point>.
+        2. Uses absolute svg:x/y coordinates (matching the frame's coordinate system)
+           instead of percentage based positioning.
+        3. Calculates 'draw:align' (escape direction) based on position.
         """
         manifest = f'''<?xml version="1.0" encoding="UTF-8"?>
 <manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0">
@@ -749,15 +752,47 @@ class PneumaticDesignerApp:
   <manifest:file-entry manifest:full-path="Pictures/diagram.svg" manifest:media-type="image/svg+xml"/>
 </manifest:manifest>'''
 
-        # Convert glue points to percentages relative to the padded frame
+        # Convert glue points to absolute coordinates relative to the frame top-left
         connection_points_xml = ""
-        for idx, (gx, gy) in enumerate(glue_points, start=1):
+        for idx, (gx, gy) in enumerate(glue_points, start=0): # ID usually starts at 0 or 1
             rel_x = gx - view_x
             rel_y = gy - view_y
             
-            px = max(0.0, min(100.0, (rel_x / float(view_w)) * 100.0))
-            py = max(0.0, min(100.0, (rel_y / float(view_h)) * 100.0))
-            connection_points_xml += f'                <draw:connection-point draw:name="GP{idx}" draw:position-x="{px:.2f}%" draw:position-y="{py:.2f}%" />\n'
+            # Determine alignment/escape direction
+            # If closer to top edge -> top, etc.
+            # Helper: normalize to 0..1
+            nx = rel_x / view_w
+            ny = rel_y / view_h
+            
+            # Simple heuristic for escape direction
+            # For pneumatic valves, ports are usually top (1,3,5) or bottom (2,4)
+            # Check proximity to edges
+            dist_top = ny
+            dist_bot = 1.0 - ny
+            dist_left = nx
+            dist_right = 1.0 - nx
+            
+            min_dist = min(dist_top, dist_bot, dist_left, dist_right)
+            
+            escape = "vertical" # default
+            align = "center"
+            
+            if min_dist == dist_top:
+                align = "top-center"
+                escape = "vertical"
+            elif min_dist == dist_bot:
+                align = "bottom-center"
+                escape = "vertical"
+            elif min_dist == dist_left:
+                align = "left-center"
+                escape = "horizontal"
+            elif min_dist == dist_right:
+                align = "right-center"
+                escape = "horizontal"
+
+            # Note: We use "px" units here because the frame is defined in px.
+            # LibreOffice usually respects the unit used in the parent element.
+            connection_points_xml += f'          <draw:glue-point draw:id="{idx}" draw:align="{align}" draw:escape-direction="{escape}" svg:x="{rel_x:.2f}px" svg:y="{rel_y:.2f}px"/>\n'
 
         content_xml = f'''<?xml version="1.0" encoding="UTF-8"?>
 <office:document-content
@@ -772,9 +807,7 @@ class PneumaticDesignerApp:
       <draw:page draw:name="page1">
         <draw:frame draw:name="pneumatic-symbol" draw:z-index="0" svg:x="2cm" svg:y="2cm" svg:width="{view_w}px" svg:height="{view_h}px">
           <draw:image xlink:href="Pictures/diagram.svg" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>
-          <draw:connection-points>
-{connection_points_xml}          </draw:connection-points>
-        </draw:frame>
+{connection_points_xml}        </draw:frame>
       </draw:page>
     </office:drawing>
   </office:body>
