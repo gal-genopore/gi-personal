@@ -1,12 +1,8 @@
-# (Full file - updated to group all drawable elements into a draw:g group inside content.xml
-# and to avoid writing any unnecessary background rectangle)
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import math
 import zipfile
-import io
 import os
-import tempfile
 
 # Define the standard size for the geometric glue point anchor
 ANCHOR_RADIUS_BASE = 1.5 
@@ -105,14 +101,27 @@ class CanvasRenderer(GraphicRenderer):
 
 
 class SvgRenderer(GraphicRenderer):
-    """Generates an SVG string."""
+    """Generates an SVG string and tracks the bounding box of drawn elements."""
     
     def __init__(self):
         self.elements = []
+        # Initialize bounds to inverted infinity so they expand on first draw
+        self.min_x = float('inf')
+        self.min_y = float('inf')
+        self.max_x = float('-inf')
+        self.max_y = float('-inf')
+
+    def _update_bounds(self, x, y):
+        if x < self.min_x: self.min_x = x
+        if x > self.max_x: self.max_x = x
+        if y < self.min_y: self.min_y = y
+        if y > self.max_y: self.max_y = y
 
     def draw_line(self, x1, y1, x2, y2, **kwargs):
         w = kwargs.get('width', 2)
         self.elements.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="black" stroke-width="{w}" />')
+        self._update_bounds(x1, y1)
+        self._update_bounds(x2, y2)
 
     def draw_rect(self, x1, y1, x2, y2, **kwargs):
         w_rect = abs(x2 - x1)
@@ -121,15 +130,21 @@ class SvgRenderer(GraphicRenderer):
         ry = min(y1, y2)
         stroke = kwargs.get('width', 2)
         self.elements.append(f'<rect x="{rx}" y="{ry}" width="{w_rect}" height="{h_rect}" fill="none" stroke="black" stroke-width="{stroke}" />')
+        self._update_bounds(x1, y1)
+        self._update_bounds(x2, y2)
 
     def draw_polygon(self, points, **kwargs):
         pts_str = " ".join([f"{x},{y}" for x, y in points])
         stroke = kwargs.get('width', 2)
         self.elements.append(f'<polygon points="{pts_str}" fill="none" stroke="black" stroke-width="{stroke}" />')
+        for x, y in points:
+            self._update_bounds(x, y)
 
     def draw_arrow(self, x1, y1, x2, y2, **kwargs):
         width = kwargs.get('width', 2)
+        # Use underlying draw methods so bounds are updated automatically
         self.draw_line(x1, y1, x2, y2, width=width)
+        
         angle = math.atan2(y2 - y1, x2 - x1)
         arrow_len = 5 * width
         angle1 = angle + math.pi / 6 + math.pi
@@ -141,50 +156,79 @@ class SvgRenderer(GraphicRenderer):
         ay2 = y2 + arrow_len * math.sin(angle2)
         
         self.elements.append(f'<polygon points="{x2},{y2} {ax1},{ay1} {ax2},{ay2}" fill="black" />')
+        self._update_bounds(x2, y2)
+        self._update_bounds(ax1, ay1)
+        self._update_bounds(ax2, ay2)
 
     def draw_t_stop(self, x, y, direction='up', **kwargs):
         size = kwargs.get('size', 5)
         width = kwargs.get('width', 2)
         if direction == 'up':
-            self.draw_line(x, y, x, y-size, width=width) # stem
-            self.draw_line(x-size, y-size, x+size, y-size, width=width) # bar
+            self.draw_line(x, y, x, y-size, width=width)
+            self.draw_line(x-size, y-size, x+size, y-size, width=width)
         else:
             self.draw_line(x, y, x, y+size, width=width)
             self.draw_line(x-size, y+size, x+size, y+size, width=width)
 
     def draw_zigzag(self, x, y, zig_width, height, horizontal=False, **kwargs):
-        points = ""
+        points_list = []
         steps = 6
         
         if horizontal:
             step_w = height / steps
-            points += f"{x},{y} "
+            points_list.append((x, y))
             for i in range(1, steps):
                 y_offset = -zig_width/2 if i % 2 != 0 else zig_width/2
-                points += f"{x + i * step_w},{y + y_offset} "
-            points += f"{x + height},{y}"
+                points_list.append((x + i * step_w, y + y_offset))
+            points_list.append((x + height, y))
         else:
             step_h = height / steps
-            points = f"{x},{y} "
+            points_list.append((x, y))
             for i in range(1, steps):
                 x_offset = -zig_width/2 if i % 2 != 0 else zig_width/2
-                points += f"{x + x_offset},{y + i * step_h} "
-            points += f"{x},{y + height}"
+                points_list.append((x + x_offset, y + i * step_h))
+            points_list.append((x, y + height))
 
+        points_str = " ".join([f"{px},{py}" for px, py in points_list])
         stroke = kwargs.get('width', 2)
-        self.elements.append(f'<polyline points="{points}" fill="none" stroke="black" stroke-width="{stroke}" />')
+        self.elements.append(f'<polyline points="{points_str}" fill="none" stroke="black" stroke-width="{stroke}" />')
+        
+        for px, py in points_list:
+            self._update_bounds(px, py)
 
     def draw_circle(self, x, y, r, **kwargs):
         stroke = kwargs.get('width', 2)
         fill_color = kwargs.get('fill', "none")
         self.elements.append(f'<circle cx="{x}" cy="{y}" r="{r}" stroke="black" stroke-width="{stroke}" fill="{fill_color}" />')
+        self._update_bounds(x - r, y - r)
+        self._update_bounds(x + r, y + r)
 
     def draw_text(self, x, y, text, font_size=10, **kwargs):
         self.elements.append(f'<text x="{x}" y="{y}" fill="black" font-family="Arial" font-size="{font_size}" text-anchor="middle">{text}</text>')
+        # Estimate text bounds
+        est_w = len(str(text)) * font_size * 0.6
+        est_h = font_size
+        self._update_bounds(x - est_w/2, y - est_h) 
+        self._update_bounds(x + est_w/2, y + 5)     
 
-    def get_svg(self, width, height):
+    def get_bounds(self):
+        if self.min_x == float('inf'):
+            return (0, 0, 100, 100) 
+        return (self.min_x, self.min_y, self.max_x, self.max_y)
+
+    def get_svg(self, view_box=None):
+        if view_box:
+            vx, vy, vw, vh = view_box
+            width_attr = f'{vw}px'
+            height_attr = f'{vh}px'
+            viewbox_attr = f'{vx} {vy} {vw} {vh}'
+        else:
+            width_attr = "600px"
+            height_attr = "400px"
+            viewbox_attr = "0 0 600 400"
+
         header = '<?xml version="1.0" encoding="UTF-8"?>\n'
-        header += f'<svg width="{width}px" height="{height}px" viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" version="1.1">'
+        header += f'<svg width="{width_attr}" height="{height_attr}" viewBox="{viewbox_attr}" xmlns="http://www.w3.org/2000/svg" version="1.1">'
         footer = '</svg>'
         return header + "".join(self.elements) + footer
 
@@ -218,8 +262,8 @@ class PneumaticDesignerApp:
             "Detent": tk.BooleanVar()
         }
 
-        self.state_configs = [] # List of StringVars
-        self.state_error_labels = [] # parallel list of error label widgets
+        self.state_configs = [] 
+        self.state_error_labels = [] 
         
         self._init_ui()
 
@@ -626,9 +670,18 @@ class PneumaticDesignerApp:
 
         svg_r = SvgRenderer()
         glue_points = []
+        # Draw on an arbitrary large canvas, we will compute bounds
         self.draw_symbol_logic(svg_r, 300, 200, scale=1.0, collect_glue_points=glue_points) 
         
-        content = svg_r.get_svg(600, 400)
+        # Compute tight bounds
+        bx, by, bX, bY = svg_r.get_bounds()
+        padding = 10
+        view_x = bx - padding
+        view_y = by - padding
+        view_w = (bX - bx) + 2*padding
+        view_h = (bY - by) + 2*padding
+        
+        content = svg_r.get_svg(view_box=(view_x, view_y, view_w, view_h))
         
         try:
             with open(filename, "w", encoding="utf-8") as f:
@@ -636,7 +689,7 @@ class PneumaticDesignerApp:
             messagebox.showinfo(
                 "Success",
                 "File saved successfully!\n\n"
-                "You can open this .svg file in LibreOffice Draw. The small black dots at the port ends are intended to serve as reliable snap/glue points when editing the diagram in Draw."
+                "You can open this .svg file in LibreOffice Draw."
             )
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save file: {e}")
@@ -661,23 +714,31 @@ class PneumaticDesignerApp:
         svg_r = SvgRenderer()
         glue_points = []
         self.draw_symbol_logic(svg_r, 300, 200, scale=1.0, collect_glue_points=glue_points)
-        svg_content = svg_r.get_svg(600, 400)
+        
+        min_x, min_y, max_x, max_y = svg_r.get_bounds()
+        padding = 5
+        
+        view_x = min_x - padding
+        view_y = min_y - padding
+        view_w = (max_x - min_x) + 2 * padding
+        view_h = (max_y - min_y) + 2 * padding
+        
+        svg_content = svg_r.get_svg(view_box=(view_x, view_y, view_w, view_h))
 
         try:
-            self._write_minimal_odg(filename, svg_content, glue_points, svg_width=600, svg_height=400)
-            messagebox.showinfo("Success", f"Saved {os.path.basename(filename)}\n\nYou can open it in LibreOffice Draw. Connection/glue points have been added based on the port endpoints.")
+            self._write_minimal_odg(filename, svg_content, glue_points, 
+                                    view_x, view_y, view_w, view_h)
+            messagebox.showinfo("Success", f"Saved {os.path.basename(filename)}\n\nThe bounding box is now tightly cropped to the symbol and glue points are active.")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save .odg file: {e}")
 
-    def _write_minimal_odg(self, odg_path, svg_content, glue_points, svg_width=600, svg_height=400):
-        """Create a minimal ODG package containing the SVG and a content.xml that references it.
-
-        Changes made to address:
-         - Grouping: All elements are wrapped inside a draw:g group so the whole symbol
-           behaves as a single grouped object in LibreOffice Draw (connectors will snap to group).
-         - Glue points: Remain inside the frame, and the frame is inside the group.
-         - No background: we do not add any background rectangle. Embedded SVG is expected to be transparent.
-         - Minimal required parts (mimetype first, manifest, content.xml, styles.xml, meta.xml, Pictures/).
+    def _write_minimal_odg(self, odg_path, svg_content, glue_points, view_x, view_y, view_w, view_h):
+        """Create a minimal ODG package.
+        
+        Changes:
+        1. REMOVED 'draw:g' wrapper. The 'draw:frame' is now the top-level object.
+           This ensures glue points are immediately accessible in LibreOffice.
+        2. Connection points are attached directly to this frame.
         """
         manifest = f'''<?xml version="1.0" encoding="UTF-8"?>
 <manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0">
@@ -688,16 +749,16 @@ class PneumaticDesignerApp:
   <manifest:file-entry manifest:full-path="Pictures/diagram.svg" manifest:media-type="image/svg+xml"/>
 </manifest:manifest>'''
 
-        # Convert glue points (pixel coords) to percentage positions relative to the SVG dims.
+        # Convert glue points to percentages relative to the padded frame
         connection_points_xml = ""
         for idx, (gx, gy) in enumerate(glue_points, start=1):
-            px = max(0.0, min(100.0, (gx / float(svg_width)) * 100.0))
-            py = max(0.0, min(100.0, (gy / float(svg_height)) * 100.0))
+            rel_x = gx - view_x
+            rel_y = gy - view_y
+            
+            px = max(0.0, min(100.0, (rel_x / float(view_w)) * 100.0))
+            py = max(0.0, min(100.0, (rel_y / float(view_h)) * 100.0))
             connection_points_xml += f'                <draw:connection-point draw:name="GP{idx}" draw:position-x="{px:.2f}%" draw:position-y="{py:.2f}%" />\n'
 
-        # Group wrapper (draw:g) containing a draw:frame with the embedded SVG and the connection points.
-        # Keeping connection points as children of the frame (so Draw recognizes them) while the frame itself
-        # is a child of the group so the whole symbol is grouped.
         content_xml = f'''<?xml version="1.0" encoding="UTF-8"?>
 <office:document-content
     xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
@@ -709,22 +770,16 @@ class PneumaticDesignerApp:
   <office:body>
     <office:drawing>
       <draw:page draw:name="page1">
-        <!-- Group that represents the whole symbol. Using draw:g per ODF spec -->
-        <draw:g draw:name="symbol-group" draw:z-index="0" svg:x="0cm" svg:y="0cm" svg:width="{svg_width}px" svg:height="{svg_height}px">
-          <!-- Frame hosting the SVG picture. The frame is inside the group so the whole symbol is grouped. -->
-          <draw:frame draw:name="diagram-frame" draw:z-index="0" svg:x="0cm" svg:y="0cm" svg:width="{svg_width}px" svg:height="{svg_height}px">
-            <draw:image xlink:href="Pictures/diagram.svg" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>
-            <!-- Connection points are placed inside the frame so LibreOffice Draw recognizes them -->
-            <draw:connection-points>
-{connection_points_xml}            </draw:connection-points>
-          </draw:frame>
-        </draw:g>
+        <draw:frame draw:name="pneumatic-symbol" draw:z-index="0" svg:x="2cm" svg:y="2cm" svg:width="{view_w}px" svg:height="{view_h}px">
+          <draw:image xlink:href="Pictures/diagram.svg" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>
+          <draw:connection-points>
+{connection_points_xml}          </draw:connection-points>
+        </draw:frame>
       </draw:page>
     </office:drawing>
   </office:body>
 </office:document-content>'''
 
-        # Minimal styles.xml and meta.xml
         styles_xml = '''<?xml version="1.0" encoding="UTF-8"?>
 <office:document-styles
     xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
@@ -743,7 +798,6 @@ class PneumaticDesignerApp:
   </office:meta>
 </office:document-meta>'''
 
-        # Write ODG (zip) with mimetype first and stored (no compression).
         with zipfile.ZipFile(odg_path, mode='w') as zf:
             zf.writestr("mimetype", "application/vnd.oasis.opendocument.graphics", compress_type=zipfile.ZIP_STORED)
             zf.writestr("META-INF/manifest.xml", manifest)
