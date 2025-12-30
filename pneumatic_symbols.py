@@ -7,39 +7,171 @@ ANCHOR_RADIUS_BASE = 1.5
 
 class GraphicRenderer:
     """Abstract base for drawing to support both Canvas and SVG."""
-    def draw_line(self, x1, y1, x2, y2, **kwargs): pass
-    def draw_rect(self, x1, y1, x2, y2, **kwargs): pass
-    def draw_polygon(self, points, **kwargs): pass
-    def draw_arrow(self, x1, y1, x2, y2, **kwargs): pass
-    def draw_t_stop(self, x, y, direction='up', **kwargs): pass
-    def draw_zigzag(self, x, y, zig_width, height, horizontal=False, **kwargs): pass
-    def draw_circle(self, x, y, r, **kwargs): pass
-    def draw_text(self, x, y, text, font_size=10, **kwargs): pass
+    
+    def draw_line(self, x1, y1, x2, y2, **kwargs):
+        """Draw a line from (x1, y1) to (x2, y2).
+        
+        Args:
+            x1: Starting x coordinate.
+            y1: Starting y coordinate.
+            x2: Ending x coordinate.
+            y2: Ending y coordinate.
+            **kwargs: Additional style parameters (width, color, etc.).
+        """
+        pass
+    
+    def draw_rect(self, x1, y1, x2, y2, **kwargs):
+        """Draw a rectangle from (x1, y1) to (x2, y2).
+        
+        Args:
+            x1: Top-left x coordinate.
+            y1: Top-left y coordinate.
+            x2: Bottom-right x coordinate.
+            y2: Bottom-right y coordinate.
+            **kwargs: Additional style parameters.
+        """
+        pass
+    
+    def draw_polygon(self, points, **kwargs):
+        """Draw a polygon with the given points.
+        
+        Args:
+            points: List of (x, y) tuples representing polygon vertices.
+            **kwargs: Additional style parameters.
+        """
+        pass
+    
+    def draw_arrow(self, x1, y1, x2, y2, **kwargs):
+        """Draw an arrow from (x1, y1) to (x2, y2).
+        
+        Args:
+            x1: Starting x coordinate.
+            y1: Starting y coordinate.
+            x2: Ending x coordinate.
+            y2: Ending y coordinate.
+            **kwargs: Additional style parameters.
+        """
+        pass
+    
+    def draw_t_stop(self, x, y, direction='up', **kwargs):
+        """Draw a T-shaped stop symbol at (x, y).
+        
+        Args:
+            x: Center x coordinate.
+            y: Center y coordinate.
+            direction: Direction of the stem ('up' or 'down'). Defaults to 'up'.
+            **kwargs: Additional style parameters.
+        """
+        pass
+    
+    def draw_zigzag(self, x, y, zig_width, height, horizontal=False, **kwargs):
+        """Draw a zigzag/spring pattern.
+        
+        Args:
+            x: Starting x coordinate.
+            y: Starting y coordinate.
+            zig_width: Amplitude of the zigzag.
+            height: Total length of the zigzag.
+            horizontal: If True, draw horizontally; else vertically. Defaults to False.
+            **kwargs: Additional style parameters.
+        """
+        pass
+    
+    def draw_circle(self, x, y, r, **kwargs):
+        """Draw a circle at (x, y) with radius r.
+        
+        Args:
+            x: Center x coordinate.
+            y: Center y coordinate.
+            r: Radius of the circle.
+            **kwargs: Additional style parameters (fill, width, etc.).
+        """
+        pass
+    
+    def draw_text(self, x, y, text, font_size=10, **kwargs):
+        """Draw text at (x, y).
+        
+        Args:
+            x: X coordinate of text position.
+            y: Y coordinate of text position.
+            text: Text string to draw.
+            font_size: Font size in points. Defaults to 10.
+            **kwargs: Additional style parameters.
+        """
+        pass
+
 
 class CanvasRenderer(GraphicRenderer):
     """Draws directly to a Tkinter Canvas."""
+    
     def __init__(self, canvas):
+        """Initialize the Canvas renderer.
+        
+        Args:
+            canvas: Tkinter Canvas object to draw on.
+        """
         self.c = canvas
 
     def draw_line(self, x1, y1, x2, y2, **kwargs):
+        """Draw a line from (x1, y1) to (x2, y2).
+        
+        Args:
+            x1: Starting x coordinate.
+            y1: Starting y coordinate.
+            x2: Ending x coordinate.
+            y2: Ending y coordinate.
+            **kwargs: Additional style parameters (width, color, etc.).
+        """
         width = kwargs.get('width', 2)
         self.c.create_line(x1, y1, x2, y2, width=width, fill="black")
 
     def draw_rect(self, x1, y1, x2, y2, **kwargs):
+        """Draw a rectangle from (x1, y1) to (x2, y2).
+        
+        Args:
+            x1: Top-left x coordinate.
+            y1: Top-left y coordinate.
+            x2: Bottom-right x coordinate.
+            y2: Bottom-right y coordinate.
+            **kwargs: Additional style parameters.
+        """
         width = kwargs.get('width', 2)
         self.c.create_rectangle(x1, y1, x2, y2, outline="black", width=width)
 
     def draw_polygon(self, points, **kwargs):
+        """Draw a polygon with the given points.
+        
+        Args:
+            points: List of (x, y) tuples representing polygon vertices.
+            **kwargs: Additional style parameters.
+        """
         width = kwargs.get('width', 2)
         # Tkinter expects a flat list [x1, y1, x2, y2, ...]
         flat_points = [coord for pt in points for coord in pt]
         self.c.create_polygon(flat_points, outline="black", width=width, fill="")
 
     def draw_arrow(self, x1, y1, x2, y2, **kwargs):
+        """Draw an arrow from (x1, y1) to (x2, y2).
+        
+        Args:
+            x1: Starting x coordinate.
+            y1: Starting y coordinate.
+            x2: Ending x coordinate.
+            y2: Ending y coordinate.
+            **kwargs: Additional style parameters.
+        """
         width = kwargs.get('width', 2)
         self.c.create_line(x1, y1, x2, y2, arrow=tk.LAST, width=width, fill="black")
 
     def draw_t_stop(self, x, y, direction='up', **kwargs):
+        """Draw a T-shaped stop symbol at (x, y).
+        
+        Args:
+            x: Center x coordinate.
+            y: Center y coordinate.
+            direction: Direction of the stem ('up' or 'down'). Defaults to 'up'.
+            **kwargs: Additional style parameters (size, width, etc.).
+        """
         size = kwargs.get('size', 5)
         width = kwargs.get('width', 2)
         if direction == 'up':
@@ -50,6 +182,16 @@ class CanvasRenderer(GraphicRenderer):
             self.c.create_line(x-size, y+size, x+size, y+size, width=width, fill="black")
 
     def draw_zigzag(self, x, y, zig_width, height, horizontal=False, **kwargs):
+        """Draw a zigzag/spring pattern.
+        
+        Args:
+            x: Starting x coordinate.
+            y: Starting y coordinate.
+            zig_width: Amplitude of the zigzag.
+            height: Total length of the zigzag.
+            horizontal: If True, draw horizontally; else vertically. Defaults to False.
+            **kwargs: Additional style parameters.
+        """
         pts = []
         steps = 6
         
@@ -78,24 +220,62 @@ class CanvasRenderer(GraphicRenderer):
         self.c.create_line(flat_pts, width=stroke_width, fill="black")
 
     def draw_circle(self, x, y, r, **kwargs):
+        """Draw a circle at (x, y) with radius r.
+        
+        Args:
+            x: Center x coordinate.
+            y: Center y coordinate.
+            r: Radius of the circle.
+            **kwargs: Additional style parameters (fill, width, etc.).
+        """
         width = kwargs.get('width', 2)
         # Fix for Tkinter: use empty string "" for no fill instead of "none"
         fill_color = kwargs.get('fill', "") 
         self.c.create_oval(x-r, y-r, x+r, y+r, outline="black", width=width, fill=fill_color)
     
     def draw_text(self, x, y, text, font_size=10, **kwargs):
+        """Draw text at (x, y).
+        
+        Args:
+            x: X coordinate of text position.
+            y: Y coordinate of text position.
+            text: Text string to draw.
+            font_size: Font size in points. Defaults to 10.
+            **kwargs: Additional style parameters.
+        """
         self.c.create_text(x, y, text=text, fill="black", font=("Arial", int(font_size)))
+
 
 class SvgRenderer(GraphicRenderer):
     """Generates an SVG string."""
+    
     def __init__(self):
+        """Initialize the SVG renderer."""
         self.elements = []
 
     def draw_line(self, x1, y1, x2, y2, **kwargs):
+        """Draw a line from (x1, y1) to (x2, y2).
+        
+        Args:
+            x1: Starting x coordinate.
+            y1: Starting y coordinate.
+            x2: Ending x coordinate.
+            y2: Ending y coordinate.
+            **kwargs: Additional style parameters (width, color, etc.).
+        """
         w = kwargs.get('width', 2)
         self.elements.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="black" stroke-width="{w}" />')
 
     def draw_rect(self, x1, y1, x2, y2, **kwargs):
+        """Draw a rectangle from (x1, y1) to (x2, y2).
+        
+        Args:
+            x1: Top-left x coordinate.
+            y1: Top-left y coordinate.
+            x2: Bottom-right x coordinate.
+            y2: Bottom-right y coordinate.
+            **kwargs: Additional style parameters.
+        """
         w_rect = abs(x2 - x1)
         h_rect = abs(y2 - y1)
         rx = min(x1, x2)
@@ -104,11 +284,26 @@ class SvgRenderer(GraphicRenderer):
         self.elements.append(f'<rect x="{rx}" y="{ry}" width="{w_rect}" height="{h_rect}" fill="none" stroke="black" stroke-width="{stroke}" />')
 
     def draw_polygon(self, points, **kwargs):
+        """Draw a polygon with the given points.
+        
+        Args:
+            points: List of (x, y) tuples representing polygon vertices.
+            **kwargs: Additional style parameters.
+        """
         pts_str = " ".join([f"{x},{y}" for x, y in points])
         stroke = kwargs.get('width', 2)
         self.elements.append(f'<polygon points="{pts_str}" fill="none" stroke="black" stroke-width="{stroke}" />')
 
     def draw_arrow(self, x1, y1, x2, y2, **kwargs):
+        """Draw an arrow from (x1, y1) to (x2, y2).
+        
+        Args:
+            x1: Starting x coordinate.
+            y1: Starting y coordinate.
+            x2: Ending x coordinate.
+            y2: Ending y coordinate.
+            **kwargs: Additional style parameters.
+        """
         width = kwargs.get('width', 2)
         self.draw_line(x1, y1, x2, y2, width=width)
         # Calculate arrow head
@@ -125,6 +320,14 @@ class SvgRenderer(GraphicRenderer):
         self.elements.append(f'<polygon points="{x2},{y2} {ax1},{ay1} {ax2},{ay2}" fill="black" />')
 
     def draw_t_stop(self, x, y, direction='up', **kwargs):
+        """Draw a T-shaped stop symbol at (x, y).
+        
+        Args:
+            x: Center x coordinate.
+            y: Center y coordinate.
+            direction: Direction of the stem ('up' or 'down'). Defaults to 'up'.
+            **kwargs: Additional style parameters (size, width, etc.).
+        """
         size = kwargs.get('size', 5)
         width = kwargs.get('width', 2)
         if direction == 'up':
@@ -135,6 +338,16 @@ class SvgRenderer(GraphicRenderer):
             self.draw_line(x-size, y+size, x+size, y+size, width=width)
 
     def draw_zigzag(self, x, y, zig_width, height, horizontal=False, **kwargs):
+        """Draw a zigzag/spring pattern.
+        
+        Args:
+            x: Starting x coordinate.
+            y: Starting y coordinate.
+            zig_width: Amplitude of the zigzag.
+            height: Total length of the zigzag.
+            horizontal: If True, draw horizontally; else vertically. Defaults to False.
+            **kwargs: Additional style parameters.
+        """
         points = ""
         steps = 6
         
@@ -159,20 +372,54 @@ class SvgRenderer(GraphicRenderer):
         self.elements.append(f'<polyline points="{points}" fill="none" stroke="black" stroke-width="{stroke}" />')
 
     def draw_circle(self, x, y, r, **kwargs):
+        """Draw a circle at (x, y) with radius r.
+        
+        Args:
+            x: Center x coordinate.
+            y: Center y coordinate.
+            r: Radius of the circle.
+            **kwargs: Additional style parameters (fill, width, etc.).
+        """
         stroke = kwargs.get('width', 2)
         fill_color = kwargs.get('fill', "none")
         self.elements.append(f'<circle cx="{x}" cy="{y}" r="{r}" stroke="black" stroke-width="{stroke}" fill="{fill_color}" />')
 
     def draw_text(self, x, y, text, font_size=10, **kwargs):
+        """Draw text at (x, y).
+        
+        Args:
+            x: X coordinate of text position.
+            y: Y coordinate of text position.
+            text: Text string to draw.
+            font_size: Font size in points. Defaults to 10.
+            **kwargs: Additional style parameters.
+        """
         self.elements.append(f'<text x="{x}" y="{y}" fill="black" font-family="Arial" font-size="{font_size}" text-anchor="middle">{text}</text>')
 
     def get_svg(self, width, height):
+        """Generate the complete SVG document.
+        
+        Args:
+            width: Width of the SVG canvas in pixels.
+            height: Height of the SVG canvas in pixels.
+            
+        Returns:
+            A string containing the complete SVG markup.
+        """
         header = f'<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg" version="1.1">'
         footer = '</svg>'
         return header + "".join(self.elements) + footer
 
+
 class PneumaticDesignerApp:
+    """Main application for designing ISO 1219 pneumatic symbols."""
+    
     def __init__(self, root):
+        """Initialize the Pneumatic Designer application.
+        
+        Args:
+            root: The root Tkinter window object.
+        """
         self.root = root
         self.root.title("ISO 1219 Pneumatic Symbol Designer")
         self.root.geometry("1100x700")
@@ -203,6 +450,7 @@ class PneumaticDesignerApp:
         self._init_ui()
 
     def _init_ui(self):
+        """Initialize the user interface components."""
         # --- Main Layout ---
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -255,7 +503,6 @@ class PneumaticDesignerApp:
         btn_frame = ttk.Frame(control_panel)
         btn_frame.grid(row=8, column=0, columnspan=2, pady=20)
         
-        ttk.Button(btn_frame, text="Generate Preview", command=self.refresh_preview).pack(side=tk.LEFT, padx=5)
         ttk.Button(btn_frame, text="Save LibreDraw (SVG)", command=self.save_svg).pack(side=tk.LEFT, padx=5)
 
         # Right Panel: Canvas
@@ -269,6 +516,11 @@ class PneumaticDesignerApp:
         self.rebuild_state_inputs()
 
     def rebuild_state_inputs(self, event=None):
+        """Rebuild dynamic state input fields based on current configuration.
+        
+        Args:
+            event: Event object from tkinter callback. Defaults to None.
+        """
         # Clear existing
         for widget in self.state_input_frame.winfo_children():
             widget.destroy()
@@ -305,6 +557,18 @@ class PneumaticDesignerApp:
         self.refresh_preview()
 
     def get_port_coords(self, port_num, box_x, box_y, box_w, box_h):
+        """Get the (x, y) coordinates for a specific port on a valve box.
+        
+        Args:
+            port_num: Port number (1-5).
+            box_x: X coordinate of the valve box top-left corner.
+            box_y: Y coordinate of the valve box top-left corner.
+            box_w: Width of the valve box.
+            box_h: Height of the valve box.
+            
+        Returns:
+            A tuple (x, y) representing the port coordinates.
+        """
         ports = self.num_ports.get()
         pos_x = 0.5
         pos_y = 1.0 # Bottom by default
@@ -334,7 +598,17 @@ class PneumaticDesignerApp:
         return (box_x + pos_x * box_w, box_y + pos_y * box_h)
 
     def draw_symbol_logic(self, r, center_x, center_y, scale=1.0):
-        """Core drawing logic agnostic of renderer. Supports scaling."""
+        """Core drawing logic for pneumatic symbols.
+        
+        Draws the complete pneumatic symbol including valve boxes, flow connections,
+        port labels, and operators (spring, solenoid, lever, etc.).
+        
+        Args:
+            r: GraphicRenderer instance (Canvas or SVG).
+            center_x: X coordinate of the symbol center.
+            center_y: Y coordinate of the symbol center.
+            scale: Scaling factor for all dimensions. Defaults to 1.0.
+        """
         BOX_SIZE = 60 * scale
         LINE_WIDTH = 1 * scale
         FONT_SIZE = 10 * scale
@@ -402,7 +676,6 @@ class PneumaticDesignerApp:
         S_15 = 15 * scale
         S_10 = 10 * scale
         S_5  = 5 * scale
-        S_3  = 3 * scale
         
         # Operator Dimensions (1/3 of valve height, centered)
         OP_HEIGHT = BOX_SIZE / 3 # Amplitude for spring
@@ -583,6 +856,7 @@ class PneumaticDesignerApp:
             r_offset += w_top
 
     def refresh_preview(self):
+        """Refresh the preview canvas with the current symbol configuration."""
         self.canvas.delete("all")
         w = self.canvas.winfo_width()
         h = self.canvas.winfo_height()
@@ -593,6 +867,7 @@ class PneumaticDesignerApp:
         self.draw_symbol_logic(renderer, w/2, h/2, scale=scale)
 
     def save_svg(self):
+        """Save the current symbol design as an SVG file for LibreOffice Draw."""
         filename = filedialog.asksaveasfilename(defaultextension=".svg", 
                                                 filetypes=[("SVG files", "*.svg"), ("All files", "*.*")],
                                                 title="Save as SVG (LibreOffice Draw Compatible)")
@@ -611,6 +886,7 @@ class PneumaticDesignerApp:
             messagebox.showinfo("Success", "File saved successfully!\nYou can open this .svg file in LibreOffice Draw, and the small black dots at the port ends will serve as reliable snap/glue points for connecting lines.")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save file: {e}")
+
 
 if __name__ == "__main__":
     root = tk.Tk()
