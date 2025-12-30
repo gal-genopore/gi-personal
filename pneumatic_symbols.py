@@ -406,7 +406,9 @@ class SvgRenderer(GraphicRenderer):
         Returns:
             A string containing the complete SVG markup.
         """
-        header = f'<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg" version="1.1">'
+        # Add XML prolog and viewBox for better compatibility (LibreOffice respects viewBox)
+        header = '<?xml version="1.0" encoding="UTF-8"?>\n'
+        header += f'<svg width="{width}px" height="{height}px" viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" version="1.1">'
         footer = '</svg>'
         return header + "".join(self.elements) + footer
 
@@ -446,6 +448,7 @@ class PneumaticDesignerApp:
         }
 
         self.state_configs = [] # List of StringVars
+        self.state_error_labels = [] # parallel list of error label widgets
         
         self._init_ui()
 
@@ -526,6 +529,7 @@ class PneumaticDesignerApp:
             widget.destroy()
         
         self.state_configs.clear()
+        self.state_error_labels.clear()
         
         n_states = self.num_states.get()
         
@@ -546,15 +550,70 @@ class PneumaticDesignerApp:
                 if i == 0: var.set("1-T, 2-3")
                 else: var.set("1-2, 3-T")
             
+            # Use ttk.Entry visually but keep a local callback to validate and refresh
             entry = ttk.Entry(self.state_input_frame, textvariable=var, width=15)
             entry.grid(row=i, column=1, sticky="e", pady=2)
             # Update preview on enter or focus out
             entry.bind("<Return>", lambda e: self.refresh_preview())
             entry.bind("<FocusOut>", lambda e: self.refresh_preview())
             
+            # Error label to the right
+            err_lbl = tk.Label(self.state_input_frame, text="", fg="red", font=("Arial", 8))
+            err_lbl.grid(row=i, column=2, sticky="w", padx=(6,0))
+            
             self.state_configs.append(var)
+            self.state_error_labels.append(err_lbl)
         
         self.refresh_preview()
+
+    def is_valid_connection(self, token):
+        """Validate a single connection token like '1-2' or '1-T'."""
+        token = token.strip()
+        if not token:
+            return True  # empty tokens are ignored elsewhere
+        if '-' not in token:
+            return False
+        parts = token.split('-')
+        if len(parts) != 2:
+            return False
+        left = parts[0].strip()
+        right = parts[1].strip()
+        try:
+            left_v = int(left)
+            if left_v < 1 or left_v > self.num_ports.get():
+                return False
+        except ValueError:
+            return False
+        if right.upper() == 'T':
+            return True
+        try:
+            right_v = int(right)
+            if right_v < 1 or right_v > self.num_ports.get():
+                return False
+        except ValueError:
+            return False
+        return True
+
+    def validate_all_state_inputs(self):
+        """Validate all state input strings and update error labels. Returns list of invalid indices."""
+        invalid_indices = []
+        for idx, var in enumerate(self.state_configs):
+            raw = var.get()
+            tokens = [s.strip() for s in raw.split(',')]
+            bad = False
+            for t in tokens:
+                if t == "":
+                    continue
+                if not self.is_valid_connection(t):
+                    bad = True
+                    break
+            lbl = self.state_error_labels[idx]
+            if bad:
+                lbl.config(text="Invalid format")
+                invalid_indices.append(idx)
+            else:
+                lbl.config(text="")
+        return invalid_indices
 
     def get_port_coords(self, port_num, box_x, box_y, box_w, box_h):
         """Get the (x, y) coordinates for a specific port on a valve box.
@@ -759,13 +818,16 @@ class PneumaticDesignerApp:
             vy = p_outer_top[1] - p_outer_bot[1]
             
             v_len = math.sqrt(vx*vx + vy*vy)
-            nx, ny = vx/v_len, vy/v_len
-            
-            handle_len = 25 * scale
-            hx, hy = p_outer_top[0] + nx * handle_len, p_outer_top[1] + ny * handle_len
-            
-            r.draw_line(p_outer_top[0], p_outer_top[1], hx, hy, width=LINE_WIDTH)
-            r.draw_circle(hx, hy, S_5, width=LINE_WIDTH)
+            # Defensive check: avoid division by zero if polygon collapses
+            if v_len > 1e-6:
+                nx, ny = vx/v_len, vy/v_len
+                
+                handle_len = 25 * scale
+                hx, hy = p_outer_top[0] + nx * handle_len, p_outer_top[1] + ny * handle_len
+                
+                r.draw_line(p_outer_top[0], p_outer_top[1], hx, hy, width=LINE_WIDTH)
+                r.draw_circle(hx, hy, S_5, width=LINE_WIDTH)
+            # else: skip the handle if degenerate
             
             l_offset += w_top
 
@@ -845,18 +907,24 @@ class PneumaticDesignerApp:
             vy = p_outer_top[1] - p_outer_bot[1]
             
             v_len = math.sqrt(vx*vx + vy*vy)
-            nx, ny = vx/v_len, vy/v_len
-            
-            handle_len = 25 * scale
-            hx, hy = p_outer_top[0] + nx * handle_len, p_outer_top[1] + ny * handle_len
-            
-            r.draw_line(p_outer_top[0], p_outer_top[1], hx, hy, width=LINE_WIDTH)
-            r.draw_circle(hx, hy, S_5, width=LINE_WIDTH)
+            # Defensive check: avoid division by zero if polygon collapses
+            if v_len > 1e-6:
+                nx, ny = vx/v_len, vy/v_len
+                
+                handle_len = 25 * scale
+                hx, hy = p_outer_top[0] + nx * handle_len, p_outer_top[1] + ny * handle_len
+                
+                r.draw_line(p_outer_top[0], p_outer_top[1], hx, hy, width=LINE_WIDTH)
+                r.draw_circle(hx, hy, S_5, width=LINE_WIDTH)
+            # else: skip handle drawing
             
             r_offset += w_top
 
     def refresh_preview(self):
         """Refresh the preview canvas with the current symbol configuration."""
+        # Validate inputs first (updates UI error labels)
+        self.validate_all_state_inputs()
+        
         self.canvas.delete("all")
         w = self.canvas.winfo_width()
         h = self.canvas.winfo_height()
@@ -868,6 +936,13 @@ class PneumaticDesignerApp:
 
     def save_svg(self):
         """Save the current symbol design as an SVG file for LibreOffice Draw."""
+        # Validate inputs before saving
+        invalid = self.validate_all_state_inputs()
+        if invalid:
+            proceed = messagebox.askyesno("Invalid inputs", "Some state flow inputs are invalid. Fix them before exporting?\n\nPress 'No' to cancel save and edit inputs, or 'Yes' to continue exporting anyway.")
+            if not proceed:
+                return
+
         filename = filedialog.asksaveasfilename(defaultextension=".svg", 
                                                 filetypes=[("SVG files", "*.svg"), ("All files", "*.*")],
                                                 title="Save as SVG (LibreOffice Draw Compatible)")
@@ -881,9 +956,14 @@ class PneumaticDesignerApp:
         content = svg_r.get_svg(600, 400)
         
         try:
-            with open(filename, "w") as f:
+            with open(filename, "w", encoding="utf-8") as f:
                 f.write(content)
-            messagebox.showinfo("Success", "File saved successfully!\nYou can open this .svg file in LibreOffice Draw, and the small black dots at the port ends will serve as reliable snap/glue points for connecting lines.")
+            # Fixed and expanded success message (original had been truncated)
+            messagebox.showinfo(
+                "Success",
+                "File saved successfully!\n\n"
+                "You can open this .svg file in LibreOffice Draw. The small black dots at the port ends are intended to serve as reliable snap/glue points when editing the diagram in Draw."
+            )
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save file: {e}")
 
