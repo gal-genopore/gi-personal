@@ -8,7 +8,7 @@ from html import escape as escape_xml
 
 # Constants
 ANCHOR_RADIUS_BASE = 1.5
-SVG_PADDING = 10
+SVG_PADDING = 0
 DPI_DEFAULT = 96.0
 
 logger = logging.getLogger(__name__)
@@ -170,11 +170,16 @@ class SvgRenderer(GraphicRenderer):
 
 
 class OdfRenderer(GraphicRenderer):
-    def __init__(self, view_x_px, view_y_px, px_to_cm):
+    def __init__(self, view_x_px, view_y_px, view_w_px, view_h_px, px_to_cm):
         self.view_x = view_x_px
         self.view_y = view_y_px
+        self.view_w = view_w_px
+        self.view_h = view_h_px
         self.px_to_cm = px_to_cm
         self.elements = []
+        self.glue_points_xml = []
+
+        logger.debug(f'Created ODF render at {view_x_px},{view_y_px} sized {view_w_px}x{view_h_px} and {px_to_cm:.4f} px to cm')
 
     def _px_to_cm(self, px):
         return px * self.px_to_cm
@@ -294,8 +299,50 @@ class OdfRenderer(GraphicRenderer):
         else:  # left or right
             self.draw_line(x, y - size, x, y + size, **kwargs)
 
-    def get_xml_fragment(self):
-        return f'<draw:g draw:name="PneumaticGroup">\n{"".join(self.elements)}\n</draw:g>'
+    def _add_glue_point(self, x_px, y_px, index):
+        # Calculate the position relative to the symbol's bounding box center
+        rel_x = (x_px - self.view_x - self.view_w / 2) / self.view_w 
+        rel_y = (y_px - self.view_y - self.view_h / 2) / self.view_h
+        
+        # Map 0.0-1.0 to the ODF relative coordinate space 
+        odf_x = int(rel_x * 10000)
+        odf_y = int(rel_y * 10000)
+
+        logger.debug(f'gp {index} - {x_px}px,{y_px}px rel to center {rel_x*100:.1f}%,{rel_y*100:.1f}% {odf_x},{odf_y} odf')
+
+        # Use unitless svg:x and svg:y for internal glue points
+        gp = (f'<draw:glue-point draw:id="{index}" draw:index="{index}" '
+            f'svg:x="{odf_x}" svg:y="{odf_y}" '
+            f'draw:escape-direction="auto" draw:user-defined="true"/>')
+        self.glue_points_xml.append(gp)
+
+    def _add_glue_point_cm(self, x_px, y_px, index):
+            logger.debug(f'gp {index} - {x_px},{y_px}')
+            """Converts px coordinates to functional ODF glue points."""
+            x_cm, y_cm = self._px_to_cm(x_px - self.view_x), self._px_to_cm(y_px - self.view_y)
+            logger.debug(f'gp {index} - {x_cm:.2f}cm,{y_cm:.2f}cm')
+            # Using draw:user-defined="true" makes them visible in 'Glue Points' edit mode
+            gp = (f'<draw:glue-point draw:id="{index}" draw:index="{index}" '
+                f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm" '
+                f'draw:escape-direction="auto" draw:user-defined="true"/>')
+            self.glue_points_xml.append(gp)
+
+    def get_xml_fragment(self, glue_points):
+        # convert the glue points from pixel to xml in cm
+        for idx, (x, y) in enumerate(glue_points):
+            self._add_glue_point(x, y, idx) 
+        gps = "\n".join(self.glue_points_xml)
+
+        # Creates an invisible box to hold glue points and wraps all elements in a group.
+        w_cm, h_cm = self._px_to_cm(self.view_w), self._px_to_cm(self.view_h)
+        logger.debug(f'Created invisible shape {w_cm:.2f}cm x{h_cm:.2f}cm')  
+        
+        # This is the "invisible" shape that makes glue points functional
+        invisible_box = (f'<draw:rect draw:layer="layout" draw:style-name="invisible" svg:width="{w_cm:.4f}cm" '
+                        f'svg:height="{h_cm:.4f}cm" svg:x="0cm" svg:y="0cm" svg:viewBox="0 0 1000 1000">'
+                        f'{gps}</draw:rect>')
+        
+        return f'<draw:g draw:name="PneumaticGroup">\n{invisible_box}\n{"".join(self.elements)}\n</draw:g>'
     
     def convert_points_px_to_cm(self, glue_points):
         glue_points_cm = []
@@ -647,34 +694,42 @@ class PneumaticDesignerApp:
         # compute bounds using SvgRenderer (same absolute coordinates)
         svg_r = SvgRenderer(); glue_points=[]
         self.draw_symbol_logic(svg_r, 300, 200, scale=1.0, collect_glue_points=glue_points)
-        min_x,min_y,max_x,max_y = svg_r.get_bounds(); padding = SVG_PADDING
-        view_x = min_x - padding; view_y = min_y - padding
-        view_w = (max_x - min_x) + 2*padding; view_h = (max_y - min_y) + 2*padding
+        min_x,min_y,max_x,max_y = svg_r.get_bounds()
+        padding = SVG_PADDING
+        view_x = min_x - padding
+        view_y = min_y - padding
+        view_w = (max_x - min_x) + 2*padding
+        view_h = (max_y - min_y) + 2*padding
         try:
             self._write_odg_native(filename, glue_points, view_x, view_y, view_w, view_h)
             messagebox.showinfo("Success", f"Saved {os.path.basename(filename)}")
-            logger.info("Saved ODG: %s (view_box=(%.2f,%.2f,%.2f,%.2f))", filename, view_x, view_y, view_w, view_h)
-            logger.debug(f'Glue points {glue_points}')
+            logger.info("Saved ODG: %s", filename)
         except Exception as e:
             logger.exception("Failed to write ODG")
             messagebox.showerror("Error", f"Failed to save ODG: {e}")
 
     def _write_odg_native(self, odg_path, glue_points, view_x, view_y, view_w, view_h):
         px_to_cm = 2.54 / DPI_DEFAULT
-        odf = OdfRenderer(view_x, view_y, px_to_cm)
+        odf = OdfRenderer(view_x, view_y, view_w, view_h, px_to_cm)
+        
+        # 1. Draw the actual geometry
         self.draw_symbol_logic(odf, 300, 200, scale=1.0)
-        glue_points_cm = odf.convert_points_px_to_cm(glue_points)
-        logger.debug(f'Glue points in cm {glue_points_cm}')
-        group_xml = odf.get_xml_fragment()
+
+        group_xml = odf.get_xml_fragment(glue_points)
 
         content_xml = f'''<?xml version="1.0" encoding="UTF-8"?>
 <office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" 
     xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" 
     xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" 
+    xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" 
     xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" office:version="1.2">
   <office:automatic-styles>
     <style:style style:name="gr1" style:family="graphic">
-      <style:graphic-properties draw:stroke="solid" svg:stroke-width="0.05cm" svg:stroke-color="#000000" draw:fill="none"/>
+      <style:graphic-properties 
+        draw:stroke="solid" 
+        svg:stroke-width="0.05cm" 
+        svg:stroke-color="#000000" 
+        draw:fill="none"/>
     </style:style>
     <style:style style:name="filled_black" style:family="graphic">
         <style:graphic-properties 
@@ -682,6 +737,11 @@ class PneumaticDesignerApp:
             draw:fill-color="#000000" 
             draw:stroke="solid" 
             svg:stroke-color="#000000"/>
+    </style:style>
+    <style:style style:name="invisible" style:family="graphic">
+        <style:graphic-properties 
+            draw:stroke="none"
+            draw:fill="none"/>
     </style:style>
   </office:automatic-styles>
   <office:body><office:drawing><draw:page draw:name="page1">{group_xml}</draw:page></office:drawing></office:body>
