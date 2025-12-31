@@ -11,7 +11,7 @@ ANCHOR_RADIUS_BASE = 1.5
 SVG_PADDING = 10
 DPI_DEFAULT = 96.0
 
-logger = logging.getLogger("pneumatic_symbols")
+logger = logging.getLogger(__name__)
 
 
 class GraphicRenderer:
@@ -189,22 +189,23 @@ class OdfRenderer(GraphicRenderer):
         w_cm, h_cm = self._px_to_cm(w_px), self._px_to_cm(h_px)
         geom = '<draw:enhanced-geometry svg:viewBox="0 0 21600 21600" draw:type="rectangle" draw:enhanced-path="M 0 0 L 21600 0 21600 21600 0 21600 0 0 Z N"/>'
         el = (f'<draw:custom-shape draw:style-name="gr1" svg:width="{w_cm:.4f}cm" svg:height="{h_cm:.4f}cm" '
-              f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm"><text:p/>{geom}</draw:custom-shape>')
+              f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm">{geom}</draw:custom-shape>')
         self.elements.append(el)
 
     def draw_line(self, x1, y1, x2, y2, **kwargs):
         x1_cm, y1_cm = self._px_to_cm(x1 - self.view_x), self._px_to_cm(y1 - self.view_y)
         x2_cm, y2_cm = self._px_to_cm(x2 - self.view_x), self._px_to_cm(y2 - self.view_y)
-        el = f'<draw:line draw:style-name="gr1" svg:x1="{x1_cm:.4f}cm" svg:y1="{y1_cm:.4f}cm" svg:x2="{x2_cm:.4f}cm" svg:y2="{y2_cm:.4f}cm"><text:p/></draw:line>'
+        el = f'<draw:line draw:style-name="gr1" svg:x1="{x1_cm:.4f}cm" svg:y1="{y1_cm:.4f}cm" svg:x2="{x2_cm:.4f}cm" svg:y2="{y2_cm:.4f}cm"></draw:line>'
         self.elements.append(el)
 
     def draw_circle(self, cx, cy, r, **kwargs):
         tl_x_px, tl_y_px = cx - r, cy - r
         x_cm, y_cm = self._px_to_cm(tl_x_px - self.view_x), self._px_to_cm(tl_y_px - self.view_y)
         w_cm = h_cm = self._px_to_cm(2*r)
+        logger.debug(f'Circle location center {cx}px,{cy}px top-left {x_cm:.2f}cm, {y_cm:.2f}cm')
         geom = '<draw:enhanced-geometry svg:viewBox="0 0 21600 21600" draw:type="ellipse" draw:enhanced-path="U 10800 10800 10800 10800 0 360 Z N"/>'
         el = (f'<draw:custom-shape draw:style-name="filled_black" svg:width="{w_cm:.4f}cm" svg:height="{h_cm:.4f}cm" '
-              f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm"><text:p/>{geom}</draw:custom-shape>')
+              f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm">{geom}</draw:custom-shape>')
         self.elements.append(el)
 
     def draw_polyline(self, points, **kwargs):
@@ -219,7 +220,7 @@ class OdfRenderer(GraphicRenderer):
         w_cm, h_cm = self._px_to_cm(w), self._px_to_cm(h)
         
         el = (f'<draw:polyline draw:style-name="gr1" svg:width="{w_cm:.4f}cm" svg:height="{h_cm:.4f}cm" '
-              f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm" svg:viewBox="0 0 1000 1000" draw:points="{pts_attr}"><text:p/></draw:polyline>')
+              f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm" svg:viewBox="0 0 1000 1000" draw:points="{pts_attr}"></draw:polyline>')
         self.elements.append(el)
 
     def draw_polygon(self, points, **kwargs):
@@ -242,7 +243,7 @@ class OdfRenderer(GraphicRenderer):
             f'svg:width="{w_cm:.4f}cm" svg:height="{h_cm:.4f}cm" '
             f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm" '
             f'svg:viewBox="0 0 1000 1000" '
-            f'draw:points="{pts_attr}"><text:p/></draw:polygon>')
+            f'draw:points="{pts_attr}"></draw:polygon>')
         
         self.elements.append(el)
 
@@ -295,6 +296,14 @@ class OdfRenderer(GraphicRenderer):
 
     def get_xml_fragment(self):
         return f'<draw:g draw:name="PneumaticGroup">\n{"".join(self.elements)}\n</draw:g>'
+    
+    def convert_points_px_to_cm(self, glue_points):
+        glue_points_cm = []
+        for glue_point in glue_points:
+            x1_cm, y1_cm = self._px_to_cm(glue_point[0] - self.view_x), self._px_to_cm(glue_point[1] - self.view_y)
+            glue_points_cm.append((x1_cm, y1_cm))
+
+        return glue_points_cm
     
 class PneumaticDesignerApp:
     def __init__(self, root):
@@ -453,8 +462,8 @@ class PneumaticDesignerApp:
             ext_y = py + (10*scale) if py > center_y else py - (10*scale)
             r.draw_line(px, py, px, ext_y, width=LINE_WIDTH)
 
-            ANCHOR_RADIUS = ANCHOR_RADIUS_BASE * scale
-            r.draw_circle(px, ext_y, ANCHOR_RADIUS, width=0.5*scale)
+            #ANCHOR_RADIUS = ANCHOR_RADIUS_BASE * scale
+            #r.draw_circle(px, ext_y, ANCHOR_RADIUS, width=0.5*scale)
             
             if collect_glue_points is not None:
                 collect_glue_points.append((px, ext_y))
@@ -625,7 +634,6 @@ class PneumaticDesignerApp:
         try:
             with open(filename, "w", encoding="utf-8") as f: f.write(content)
             logger.info("Saved SVG: %s (view_box=(%.2f,%.2f,%.2f,%.2f))", filename, view_x, view_y, view_w, view_h)
-            logger.debug("Glue points: %s", glue_points)
             messagebox.showinfo("Success","SVG saved.")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save: {e}")
@@ -645,16 +653,18 @@ class PneumaticDesignerApp:
         try:
             self._write_odg_native(filename, glue_points, view_x, view_y, view_w, view_h)
             messagebox.showinfo("Success", f"Saved {os.path.basename(filename)}")
-            logger.info("Saved ODG: %s", filename)
+            logger.info("Saved ODG: %s (view_box=(%.2f,%.2f,%.2f,%.2f))", filename, view_x, view_y, view_w, view_h)
+            logger.debug(f'Glue points {glue_points}')
         except Exception as e:
             logger.exception("Failed to write ODG")
             messagebox.showerror("Error", f"Failed to save ODG: {e}")
 
     def _write_odg_native(self, odg_path, glue_points, view_x, view_y, view_w, view_h):
         px_to_cm = 2.54 / DPI_DEFAULT
-        # Using the updated OdfRenderer with grouping logic
         odf = OdfRenderer(view_x, view_y, px_to_cm)
         self.draw_symbol_logic(odf, 300, 200, scale=1.0)
+        glue_points_cm = odf.convert_points_px_to_cm(glue_points)
+        logger.debug(f'Glue points in cm {glue_points_cm}')
         group_xml = odf.get_xml_fragment()
 
         content_xml = f'''<?xml version="1.0" encoding="UTF-8"?>
@@ -684,8 +694,11 @@ class PneumaticDesignerApp:
 
 if __name__ == "__main__":
     log_level = logging.DEBUG
-    logging.basicConfig(level=log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(level=log_level, 
+                    format='%(asctime)s - %(levelname)s - %(funcName)s - %(message)s',
+                    datefmt='%S')
     logger.setLevel(log_level)
+
     root = tk.Tk()
     app = PneumaticDesignerApp(root)
     root.after(100, app.refresh_preview)
