@@ -46,7 +46,7 @@ class CanvasRenderer(GraphicRenderer):
     def draw_circle(self, x, y, r, **kwargs):
         width = kwargs.get('width', 2)
         fill = kwargs.get('fill', "")
-        self.c.create_oval(x-r, y-r, x+r, y+r, outline="black", width=width, fill=fill)
+        self.c.create_oval(x-r, y-r, x+r, y+r, outline="black", width=width, fill='black')
     def draw_text(self, x, y, text, font_size=10, **kwargs):
         self.c.create_text(x, y, text=text, fill="black", font=("Arial", int(font_size)))
     def draw_zigzag(self, x, y, zig_dim, length, horizontal=False, **kwargs):
@@ -105,7 +105,6 @@ class SvgRenderer(GraphicRenderer):
     def draw_polygon(self, points, **kwargs):
         pts = " ".join([f"{x},{y}" for (x,y) in points])
         fill = kwargs.get('fill', 'none')
-        logger.debug(f'points {pts} fill {fill}')
         self.elements.append(f'<polygon points="{pts}" stroke="black" fill="{fill}"/>')
         for x,y in points: self._update(x,y)
     def draw_polyline(self, points, **kwargs):
@@ -204,7 +203,7 @@ class OdfRenderer(GraphicRenderer):
         x_cm, y_cm = self._px_to_cm(tl_x_px - self.view_x), self._px_to_cm(tl_y_px - self.view_y)
         w_cm = h_cm = self._px_to_cm(2*r)
         geom = '<draw:enhanced-geometry svg:viewBox="0 0 21600 21600" draw:type="ellipse" draw:enhanced-path="U 10800 10800 10800 10800 0 360 Z N"/>'
-        el = (f'<draw:custom-shape draw:style-name="gr1" svg:width="{w_cm:.4f}cm" svg:height="{h_cm:.4f}cm" '
+        el = (f'<draw:custom-shape draw:style-name="filled_black" svg:width="{w_cm:.4f}cm" svg:height="{h_cm:.4f}cm" '
               f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm"><text:p/>{geom}</draw:custom-shape>')
         self.elements.append(el)
 
@@ -235,8 +234,7 @@ class OdfRenderer(GraphicRenderer):
         x_cm, y_cm = self._px_to_cm(minx), self._px_to_cm(miny)
         w_cm, h_cm = self._px_to_cm(w), self._px_to_cm(h)
         
-        # 1. Determine Style: If 'fill' is provided, we reference a specific style.
-        # Note: You must ensure 'filled_style' is defined in your ODF style section
+        # Note: You must ensure 'gr1' is defined in your ODF style section
         style_name = kwargs.get("style_name", "gr1")
         
         # 2. Use <draw:polygon>
@@ -285,7 +283,7 @@ class OdfRenderer(GraphicRenderer):
               y2 - length * math.sin(angle) + width * math.cos(angle))
         
         # 3. Draw head
-        self.draw_polygon([p1, p2, p3], style_name="gr1", **kwargs)
+        self.draw_polygon([p1, p2, p3], style_name="filled_black", **kwargs)
 
     def draw_t_stop(self, x, y, direction='up', **kwargs):
         size = kwargs.get('size', 5)
@@ -456,7 +454,7 @@ class PneumaticDesignerApp:
             r.draw_line(px, py, px, ext_y, width=LINE_WIDTH)
 
             ANCHOR_RADIUS = ANCHOR_RADIUS_BASE * scale
-            r.draw_circle(px, ext_y, ANCHOR_RADIUS, width=0.5*scale, fill="black")
+            r.draw_circle(px, ext_y, ANCHOR_RADIUS, width=0.5*scale)
             
             if collect_glue_points is not None:
                 collect_glue_points.append((px, ext_y))
@@ -667,6 +665,13 @@ class PneumaticDesignerApp:
   <office:automatic-styles>
     <style:style style:name="gr1" style:family="graphic">
       <style:graphic-properties draw:stroke="solid" svg:stroke-width="0.05cm" svg:stroke-color="#000000" draw:fill="none"/>
+    </style:style>
+    <style:style style:name="filled_black" style:family="graphic">
+        <style:graphic-properties 
+            draw:fill="solid" 
+            draw:fill-color="#000000" 
+            draw:stroke="solid" 
+            svg:stroke-color="#000000"/>
     </style:style>
   </office:automatic-styles>
   <office:body><office:drawing><draw:page draw:name="page1">{group_xml}</draw:page></office:drawing></office:body>
