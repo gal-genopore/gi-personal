@@ -45,7 +45,6 @@ class CanvasRenderer(GraphicRenderer):
         self.c.create_polygon(flat, outline="black", width=width, fill="")
     def draw_circle(self, x, y, r, **kwargs):
         width = kwargs.get('width', 2)
-        fill = kwargs.get('fill', "")
         self.c.create_oval(x-r, y-r, x+r, y+r, outline="black", width=width, fill='black')
     def draw_text(self, x, y, text, font_size=10, **kwargs):
         self.c.create_text(x, y, text=text, fill="black", font=("Arial", int(font_size)))
@@ -207,7 +206,7 @@ class OdfRenderer(GraphicRenderer):
         tl_x_px, tl_y_px = cx - r, cy - r
         x_cm, y_cm = self._px_to_cm(tl_x_px - self.view_x), self._px_to_cm(tl_y_px - self.view_y)
         w_cm = h_cm = self._px_to_cm(2*r)
-        logger.debug(f'Circle location center {cx}px,{cy}px top-left {x_cm:.2f}cm, {y_cm:.2f}cm')
+
         geom = '<draw:enhanced-geometry svg:viewBox="0 0 21600 21600" draw:type="ellipse" draw:enhanced-path="U 10800 10800 10800 10800 0 360 Z N"/>'
         el = (f'<draw:custom-shape draw:style-name="filled_black" svg:width="{w_cm:.4f}cm" svg:height="{h_cm:.4f}cm" '
               f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm">{geom}</draw:custom-shape>')
@@ -253,10 +252,26 @@ class OdfRenderer(GraphicRenderer):
         self.elements.append(el)
 
     def draw_text(self, x, y, text, **kwargs):
-        # Center text box roughly on coordinate
-        x_cm, y_cm = self._px_to_cm(x - 10 - self.view_x), self._px_to_cm(y - 5 - self.view_y)
-        el = (f'<draw:text-box svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm" svg:width="0.8cm" svg:height="0.4cm">'
-              f'<text:p>{escape_xml(str(text))}</text:p></draw:text-box>')
+        alignV = kwargs.get('align_text', 'top')
+        if alignV == 'top':
+            y_cm = self._px_to_cm(y - self.view_y)
+        else:
+            y_cm = self._px_to_cm(y - self.view_y) - self._px_to_cm(20)
+        x_cm = self._px_to_cm(x - self.view_x)
+
+        logger.debug(f'Text {text} at {x_cm:.2f}cm,{y_cm:.2f}cm aligment {alignV}')
+
+        el = (f'<draw:frame '
+                f'draw:style-name="text_on_transparent" '
+                f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm" '
+                f'svg:width="0.2cm" svg:height="0.4cm"> '
+                f'<draw:text-box> '
+                  f'<text:p text:style-name="P1">'
+                    f'{escape_xml(str(text))}'
+                  f'</text:p> '
+                f'</draw:text-box> '
+              f'</draw:frame>')
+
         self.elements.append(el)
 
     def draw_zigzag(self, x, y, zig_dim, length, horizontal=False, **kwargs):
@@ -313,24 +328,50 @@ class OdfRenderer(GraphicRenderer):
         # Use unitless svg:x and svg:y for internal glue points
         gp = (f'<draw:glue-point draw:id="{index}" draw:index="{index}" '
             f'svg:x="{odf_x}" svg:y="{odf_y}" '
-            f'draw:escape-direction="auto" draw:user-defined="true"/>')
+            f'draw:escape-direction="all" '
+            f'draw:glue-point-type="rectangle" '
+            f'draw:user-defined="true"/>')
         self.glue_points_xml.append(gp)
 
+    def _add_glue_point_cm_odf(self, x_px, y_px, index):
+        # Calculate the position relative to the symbol's bounding box center
+        rel_x = (x_px - self.view_x - self.view_w / 2) / self.view_w 
+        rel_y = (y_px - self.view_y - self.view_h / 2) / self.view_h
+        
+        # Map 0.0-1.0 to the ODF relative coordinate 
+        odf_x = rel_x * 10
+        odf_y = rel_y * 10
+
+        logger.debug(f'gp {index} - {x_px}px,{y_px}px rel to center {rel_x*100:.1f}%,{rel_y*100:.1f}% {odf_x:.3f},{odf_y:.3f} odf')
+
+        # Use unitless svg:x and svg:y for internal glue points altough we have the cm unit
+        gp = (f'<draw:glue-point draw:id="{index}" draw:index="{index}" '
+            f'svg:x="{odf_x:.4f}cm" svg:y="{odf_y:.4f}cm" '
+            f'draw:escape-direction="all" '
+            f'draw:user-defined="true"/>')
+        self.glue_points_xml.append(gp)
+
+
     def _add_glue_point_cm(self, x_px, y_px, index):
-            logger.debug(f'gp {index} - {x_px},{y_px}')
-            """Converts px coordinates to functional ODF glue points."""
-            x_cm, y_cm = self._px_to_cm(x_px - self.view_x), self._px_to_cm(y_px - self.view_y)
-            logger.debug(f'gp {index} - {x_cm:.2f}cm,{y_cm:.2f}cm')
-            # Using draw:user-defined="true" makes them visible in 'Glue Points' edit mode
-            gp = (f'<draw:glue-point draw:id="{index}" draw:index="{index}" '
-                f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm" '
-                f'draw:escape-direction="auto" draw:user-defined="true"/>')
-            self.glue_points_xml.append(gp)
+        # Use absolute centimeter coordinates to match the lines exactly
+        x_cm = self._px_to_cm(x_px - self.view_x)
+        y_cm = self._px_to_cm(y_px - self.view_y)
+
+        logger.debug(f'gp {index} at {x_cm:.4f}cm, {y_cm:.4f}cm')
+
+        # Note: No viewBox is used here; we use explicit 'cm' units
+        gp = (f'<draw:glue-point '
+              f'draw:id="{index}" '
+              f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm" '
+              f'draw:escape-direction="all"/>')
+        self.glue_points_xml.append(gp)
 
     def get_xml_fragment(self, glue_points):
+        empty_xml =""
+
         # convert the glue points from pixel to xml in cm
         for idx, (x, y) in enumerate(glue_points):
-            self._add_glue_point(x, y, idx) 
+            self._add_glue_point_cm_odf(x, y, idx) 
         gps = "\n".join(self.glue_points_xml)
 
         # Creates an invisible box to hold glue points and wraps all elements in a group.
@@ -339,10 +380,12 @@ class OdfRenderer(GraphicRenderer):
         
         # This is the "invisible" shape that makes glue points functional
         invisible_box = (f'<draw:rect draw:layer="layout" draw:style-name="invisible" svg:width="{w_cm:.4f}cm" '
-                        f'svg:height="{h_cm:.4f}cm" svg:x="0cm" svg:y="0cm" svg:viewBox="0 0 1000 1000">'
-                        f'{gps}</draw:rect>')
+                        f'svg:height="{h_cm:.4f}cm" svg:x="0cm" svg:y="0cm" svg:viewBox="0 0 10000 10000">'
+                        f'{empty_xml}</draw:rect>')
         
-        return f'<draw:g draw:name="PneumaticGroup">\n{invisible_box}\n{"".join(self.elements)}\n</draw:g>'
+        symbol_xml = "".join(self.elements)
+
+        return f'<draw:g draw:name="PneumaticGroup" svg:x="0cm" svg:y="0cm">\n{gps}\n{symbol_xml}\n{invisible_box}\n</draw:g>'
     
     def convert_points_px_to_cm(self, glue_points):
         glue_points_cm = []
@@ -503,8 +546,14 @@ class PneumaticDesignerApp:
         for p in range(1, self.num_ports.get() + 1):
             px, py = self.get_port_coords(p, ref_box_x, top_y, BOX_SIZE, BOX_SIZE)
             
-            lbl_y = py + (15*scale) if py > center_y else py - (15*scale)
-            r.draw_text(px, lbl_y, str(p), font_size=FONT_SIZE)
+            if py > center_y:
+                lbl_y = py + (15*scale)
+                align_text = 'bottom'
+            else:
+                lbl_y = py - (15*scale)
+                align_text = 'top'
+            
+            r.draw_text(px, lbl_y, str(p), font_size=FONT_SIZE, align_text=align_text)
             
             ext_y = py + (10*scale) if py > center_y else py - (10*scale)
             r.draw_line(px, py, px, ext_y, width=LINE_WIDTH)
@@ -718,33 +767,76 @@ class PneumaticDesignerApp:
         group_xml = odf.get_xml_fragment(glue_points)
 
         content_xml = f'''<?xml version="1.0" encoding="UTF-8"?>
-<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" 
-    xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" 
-    xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" 
-    xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" 
-    xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" office:version="1.2">
-  <office:automatic-styles>
-    <style:style style:name="gr1" style:family="graphic">
-      <style:graphic-properties 
-        draw:stroke="solid" 
-        svg:stroke-width="0.05cm" 
-        svg:stroke-color="#000000" 
-        draw:fill="none"/>
-    </style:style>
-    <style:style style:name="filled_black" style:family="graphic">
+<office:document-content 
+  xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" 
+  xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" 
+  xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" 
+  xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" 
+  xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" 
+  xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" office:version="1.2">
+    <office:font-face-decls>
+      <style:font-face 
+        style:name="Arial" 
+        style:font-family="Arial" 
+        style:font-family-generic="swiss" 
+        style:font-pitch="variable"/>
+    </office:font-face-decls>
+    <office:automatic-styles>
+      <style:style style:name="gr1" style:family="graphic">
         <style:graphic-properties 
-            draw:fill="solid" 
-            draw:fill-color="#000000" 
-            draw:stroke="solid" 
-            svg:stroke-color="#000000"/>
-    </style:style>
-    <style:style style:name="invisible" style:family="graphic">
+          draw:stroke="solid" 
+          svg:stroke-width="0.05cm" 
+          svg:stroke-color="#000000" 
+          draw:fill="none"/>
+      </style:style>
+      <style:style style:name="filled_black" style:family="graphic">
         <style:graphic-properties 
-            draw:stroke="none"
-            draw:fill="none"/>
-    </style:style>
-  </office:automatic-styles>
-  <office:body><office:drawing><draw:page draw:name="page1">{group_xml}</draw:page></office:drawing></office:body>
+          draw:fill="solid" 
+          draw:fill-color="#000000" 
+          draw:stroke="solid" 
+          svg:stroke-color="#000000"/>
+      </style:style>
+      <style:style style:name="invisible" style:family="graphic">
+        <style:graphic-properties 
+          draw:stroke="none"
+          draw:fill="solid"
+          draw:fill-color="#ffffff" 
+          draw:opacity="1%"/>
+      </style:style>
+      <style:style style:name="P1" style:family="paragraph" style:class="text">
+        <style:text-properties 
+          fo:color="#000000" 
+          fo:font-size="8pt" 
+          style:font-name="Arial"/>
+      </style:style>
+      <style:style style:name="text_black8p" style:family="graphic">
+        <style:graphic-properties 
+          draw:fill="none" 
+          draw:stroke="none" 
+          style:vertical-pos="middle" 
+          style:textarea-horizontal-align="center"/>
+        <style:text-properties 
+          style:font-name="Arial" 
+          fo:font-size="8pt" 
+          fo:color="#000000"/>
+      </style:style>
+      <style:style style:name="text_on_transparent" style:family="graphic">
+      <style:graphic-properties
+        draw:fill="none"
+        draw:stroke="none"/>
+        <style:text-properties
+          style:font-name="Arial"
+          fo:font-size="8pt"
+          fo:color="#000000"/>
+      </style:style>
+    </office:automatic-styles>
+    <office:body>
+      <office:drawing>
+        <draw:page 
+          draw:name="page1">{group_xml}
+        </draw:page>
+      </office:drawing>
+    </office:body>
 </office:document-content>'''
 
         with zipfile.ZipFile(odg_path, 'w') as zf:
