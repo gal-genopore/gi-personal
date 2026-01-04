@@ -42,10 +42,11 @@ class CanvasRenderer(GraphicRenderer):
     def draw_polyline(self, points, **kwargs):
         width = kwargs.get('width', 2)
         flat = [coord for pt in points for coord in pt]
-        self.c.create_polygon(flat, outline="black", width=width, fill="")
+        self.c.create_line(flat, fill="black", width=width)
     def draw_circle(self, x, y, r, **kwargs):
         width = kwargs.get('width', 2)
-        self.c.create_oval(x-r, y-r, x+r, y+r, outline="black", width=width, fill='black')
+        fill = kwargs.get('fill', 'black')
+        self.c.create_oval(x-r, y-r, x+r, y+r, outline="black", width=width, fill=fill)
     def draw_text(self, x, y, text, font_size=10, **kwargs):
         self.c.create_text(x, y, text=text, fill="black", font=("Arial", int(font_size)))
     def draw_zigzag(self, x, y, zig_dim, length, horizontal=False, **kwargs):
@@ -99,7 +100,8 @@ class SvgRenderer(GraphicRenderer):
         self.elements.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="black"/>')
         self._update(x1,y1); self._update(x2,y2)
     def draw_circle(self, x, y, r, **kwargs):
-        self.elements.append(f'<circle cx="{x}" cy="{y}" r="{r}" stroke="black" fill="black"/>')
+        fill = kwargs.get('fill', 'none')
+        self.elements.append(f'<circle cx="{x}" cy="{y}" r="{r}" stroke="black" fill="{fill}"/>')
         self._update(x-r,y-r); self._update(x+r,y+r)
     def draw_polygon(self, points, **kwargs):
         pts = " ".join([f"{x},{y}" for (x,y) in points])
@@ -207,8 +209,14 @@ class OdfRenderer(GraphicRenderer):
         x_cm, y_cm = self._px_to_cm(tl_x_px - self.view_x), self._px_to_cm(tl_y_px - self.view_y)
         w_cm = h_cm = self._px_to_cm(2*r)
 
+        fill = kwargs.get('fill', 'black')
+        if fill == 'black':
+            style = 'filled_black'
+        else:
+            style = 'filled_white'
+
         geom = '<draw:enhanced-geometry svg:viewBox="0 0 21600 21600" draw:type="ellipse" draw:enhanced-path="U 10800 10800 10800 10800 0 360 Z N"/>'
-        el = (f'<draw:custom-shape draw:style-name="filled_black" svg:width="{w_cm:.4f}cm" svg:height="{h_cm:.4f}cm" '
+        el = (f'<draw:custom-shape draw:style-name="{style}" svg:width="{w_cm:.4f}cm" svg:height="{h_cm:.4f}cm" '
               f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm">{geom}</draw:custom-shape>')
         self.elements.append(el)
 
@@ -395,7 +403,7 @@ class OdfRenderer(GraphicRenderer):
 
         return glue_points_cm
     
-class PneumaticDesignerApp:
+class PneumaticDesignerAppOrg:
     def __init__(self, root):
         self.root = root
         self.root.title("ISO 1219 Pneumatic Symbol Designer")
@@ -843,6 +851,617 @@ class PneumaticDesignerApp:
             zf.writestr("mimetype", "application/vnd.oasis.opendocument.graphics")
             zf.writestr("content.xml", content_xml)
             zf.writestr("META-INF/manifest.xml", '<?xml version="1.0" encoding="UTF-8"?><manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.2"><manifest:file-entry manifest:full-path="/" manifest:media-type="application/vnd.oasis.opendocument.graphics"/><manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/></manifest:manifest>')
+
+class PneumaticDesignerApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Pneumatic & P&ID Symbol Designer")
+        self.root.geometry("1100x750")
+        
+        # Variables
+        self.standard = tk.StringVar(value="ISO 1219")
+        self.num_ports = tk.IntVar(value=4)
+        self.num_states = tk.IntVar(value=2)
+        self.pid_valve_type = tk.StringVar(value="L-Type") # For P&ID 3-way
+        self.zoom_level = tk.DoubleVar(value=1.0)
+        
+        self.left_ops = {k: tk.BooleanVar() for k in ["Spring","Solenoid","Lever","Pilot","Detent"]}
+        self.right_ops = {k: tk.BooleanVar() for k in ["Spring","Solenoid","Lever","Pilot","Detent"]}
+        
+        self.state_configs = []
+        self.state_error_labels = []
+        self._init_ui()
+
+    def _init_ui(self):
+        main_frame = ttk.Frame(self.root, padding="10")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        control_panel = ttk.LabelFrame(main_frame, text="Configuration", padding="10")
+        control_panel.pack(side=tk.LEFT, fill=tk.Y, padx=(0,10))
+
+        # Standard Selection
+        ttk.Label(control_panel, text="Standard:").grid(row=0, column=0, sticky="w", pady=5)
+        std_cb = ttk.Combobox(control_panel, textvariable=self.standard, values=["ISO 1219", "P&ID (ANSI/ISA)"], state="readonly", width=15)
+        std_cb.grid(row=0, column=1, sticky="e")
+        std_cb.bind("<<ComboboxSelected>>", self.handle_standard_change)
+
+        # Port Selection
+        ttk.Label(control_panel, text="Number of Ports:").grid(row=1, column=0, sticky="w", pady=5)
+        self.port_cb = ttk.Combobox(control_panel, textvariable=self.num_ports, values=[2,3,4,5], state="readonly", width=5)
+        self.port_cb.grid(row=1,column=1,sticky="e")
+        self.port_cb.bind("<<ComboboxSelected>>", self.rebuild_state_inputs)
+
+        # State Selection (Disabled for P&ID)
+        ttk.Label(control_panel, text="Number of States:").grid(row=2, column=0, sticky="w", pady=5)
+        self.state_cb = ttk.Combobox(control_panel, textvariable=self.num_states, values=[2,3], state="readonly", width=5)
+        self.state_cb.grid(row=2,column=1,sticky="e")
+        self.state_cb.bind("<<ComboboxSelected>>", self.rebuild_state_inputs)
+
+        # P&ID 3-Way Type
+        ttk.Label(control_panel, text="P&ID 3-Way Type:").grid(row=3, column=0, sticky="w", pady=5)
+        self.pid_type_cb = ttk.Combobox(control_panel, textvariable=self.pid_valve_type, values=["L-Type", "T-Type"], state="disabled", width=8)
+        self.pid_type_cb.grid(row=3, column=1, sticky="e")
+        self.pid_type_cb.bind("<<ComboboxSelected>>", lambda e: self.refresh_preview())
+
+        ttk.Label(control_panel, text="Zoom Level:").grid(row=4, column=0, sticky="w", pady=5)
+        tk.Scale(control_panel, variable=self.zoom_level, from_=0.5, to=3.0, resolution=0.1, orient=tk.HORIZONTAL, length=100, command=lambda v: self.refresh_preview()).grid(row=4,column=1,sticky="e")
+
+        ttk.Separator(control_panel, orient='horizontal').grid(row=5, column=0, columnspan=2, sticky="ew", pady=10)
+        
+        # Operators
+        op_frame = ttk.Frame(control_panel)
+        op_frame.grid(row=6, column=0, columnspan=2, sticky="ew")
+        ttk.Label(op_frame, text="Left Operator").grid(row=0, column=0, sticky="w")
+        ttk.Label(op_frame, text="Right Operator").grid(row=0, column=1, sticky="w")
+        r_idx = 1
+        for name in self.left_ops:
+            ttk.Checkbutton(op_frame, text=name, variable=self.left_ops[name], command=self.refresh_preview).grid(row=r_idx, column=0, sticky="w")
+            ttk.Checkbutton(op_frame, text=name, variable=self.right_ops[name], command=self.refresh_preview).grid(row=r_idx, column=1, sticky="w")
+            r_idx += 1
+
+        ttk.Separator(control_panel, orient='horizontal').grid(row=7, column=0, columnspan=2, sticky="ew", pady=10)
+
+        self.state_input_frame = ttk.LabelFrame(control_panel, text="Flow Paths (e.g. 1-2, 3-T)"); self.state_input_frame.grid(row=8,column=0,columnspan=2,sticky="ew", pady=5)
+        help_lbl = ttk.Label(control_panel, text="Format: '1-2' (connect),\n'1-T' (block).\nSeparate with commas.", font=("Arial",8), foreground="gray"); help_lbl.grid(row=9,column=0,columnspan=2)
+        btn_frame = ttk.Frame(control_panel); btn_frame.grid(row=10,column=0,columnspan=2,pady=20)
+
+        
+        #self.state_input_frame = ttk.LabelFrame(control_panel, text="Flow Paths", padding="5")
+        #self.state_input_frame.grid(row=8,column=0,columnspan=2,sticky="ew", pady=5)
+        
+        btn_frame = ttk.Frame(control_panel)
+        btn_frame.grid(row=11,column=0,columnspan=2,pady=20)
+        ttk.Button(btn_frame, text="Save SVG", command=self.save_svg).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="Save ODG", command=self.save_odg).pack(side=tk.LEFT, padx=5)
+
+        self.canvas_frame = ttk.LabelFrame(main_frame, text="Preview", padding="10")
+        self.canvas_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+        self.canvas = tk.Canvas(self.canvas_frame, bg="white")
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+        
+        self.rebuild_state_inputs()
+
+    def handle_standard_change(self, event=None):
+        if self.standard.get() == "P&ID (ANSI/ISA)":
+            self.state_cb.config(state="disabled")
+            self.port_cb.config(values=[2, 3])
+            if self.num_ports.get() > 3: self.num_ports.set(2)
+        else:
+            self.state_cb.config(state="readonly")
+            self.port_cb.config(values=[2, 3, 4, 5])
+        
+        self.rebuild_state_inputs()
+
+    def rebuild_ISO_state_inputs(self, event=None):
+        for w in self.state_input_frame.winfo_children(): w.destroy()
+        self.state_configs.clear(); self.state_error_labels.clear()
+        n_states = self.num_states.get()
+        for i in range(n_states):
+            lbl_text = f"Pos {i+1} (Left):" if i==0 else (f"Pos {i+1} (Right):" if i==n_states-1 else f"Pos {i+1} (Center):")
+            ttk.Label(self.state_input_frame, text=lbl_text).grid(row=i,column=0,sticky="w",pady=2)
+            var = tk.StringVar()
+            if self.num_ports.get()==4:
+                var.set("1-2, 4-3" if i==0 else "1-4, 2-3")
+            elif self.num_ports.get()==5:
+                var.set("1-2, 4-5" if i==0 else "1-4, 2-3")
+            elif self.num_ports.get()==3:
+                var.set("1-T, 2-3" if i==0 else "1-2, 3-T")
+            entry = ttk.Entry(self.state_input_frame, textvariable=var, width=15); entry.grid(row=i,column=1,sticky="e",pady=2)
+            entry.bind("<Return>", lambda e: self.refresh_preview()); entry.bind("<FocusOut>", lambda e: self.refresh_preview())
+            err_lbl = tk.Label(self.state_input_frame, text="", fg="red", font=("Arial",8)); err_lbl.grid(row=i,column=2,sticky="w", padx=(6,0))
+            self.state_configs.append(var); self.state_error_labels.append(err_lbl)
+        self.refresh_preview()
+
+    def rebuild_state_inputs(self, event=None):
+        is_pid = self.standard.get() == "P&ID (ANSI/ISA)"
+        if is_pid :
+            self.rebuild_PID_state_inputs()
+        else:
+            self.rebuild_ISO_state_inputs()
+            
+
+    def rebuild_PID_state_inputs(self, event=None):
+        is_pid = self.standard.get() == "P&ID (ANSI/ISA)"
+
+        # Toggle 3-way P&ID dropdown
+        if is_pid and self.num_ports.get() == 3:
+            self.pid_type_cb.config(state="readonly")
+        else:
+            self.pid_type_cb.config(state="disabled")
+
+        for w in self.state_input_frame.winfo_children(): w.destroy()
+        self.state_configs.clear()
+        self.state_error_labels.clear()
+
+        # P&ID usually shows a single static symbol       
+        lbl_text = "Valve State:" 
+        ttk.Label(self.state_input_frame, text=lbl_text).grid(row=1,column=0,sticky="w")
+        var = tk.StringVar()
+        # Default logic
+        var.set("P&ID Internal") # Content ignored for P&ID
+            
+        ent = ttk.Entry(self.state_input_frame, textvariable=var, state="disabled")
+        ent.grid(row=1, column=1)
+        self.state_configs.append(var)
+        self.state_error_labels.append(tk.Label(self.state_input_frame, text=""))
+
+        self.refresh_preview()
+
+    def draw_symbol_logic(self, r, center_x, center_y, scale=1.0, collect_glue_points=None):
+        if self.standard.get() == "P&ID (ANSI/ISA)":
+            self._draw_pid_logic(r, center_x, center_y, scale, collect_glue_points)
+        else:
+            # ORIGINAL ISO LOGIC
+            self._draw_iso_logic(r, center_x, center_y, scale, collect_glue_points)
+
+    def validate_all_state_inputs(self):
+        invalid=[]
+        if self.standard.get() != "P&ID (ANSI/ISA)":
+            for idx,var in enumerate(self.state_configs):
+                raw=var.get() 
+                tokens=[s.strip() for s in raw.split(',')] 
+                bad=False
+                for t in tokens:
+                    if t=="" : 
+                        continue
+                    if not self.is_valid_connection(t): 
+                        bad=True
+                        break
+                lbl=self.state_error_labels[idx]
+                if bad: 
+                    lbl.config(text="Invalid format")
+                    invalid.append(idx)
+                else: 
+                    lbl.config(text="")
+        return invalid
+    
+    def is_valid_connection(self, token):
+        token = token.strip()
+        if not token: 
+            return True
+        if '-' not in token: 
+            return False
+        parts = token.split('-')
+        if len(parts)!=2: 
+            return False
+        left,right = parts[0].strip(), parts[1].strip()
+        try:
+            lv = int(left); 
+            if lv <1 or lv>self.num_ports.get(): 
+                return False
+        except ValueError:
+            return False
+        if right.upper()=='T': 
+            return True
+        try:
+            rv=int(right)
+            if rv<1 or rv>self.num_ports.get(): 
+                return False
+        except ValueError:
+            return False
+        return True
+
+    def _draw_pid_logic(self, r, cx, cy, scale, gp_list):
+        """Draws P&ID ball valve with overlapping components."""
+        S = 40 * scale  # Triangle length
+        R = 12 * scale  # Ball radius
+        LW = 1.5 * scale
+
+        # 1. Draw the Triangles starting at the same point (cx, cy)
+        # Left Triangle
+        r.draw_polygon([(cx, cy), (cx - S, cy - S/2), (cx - S, cy + S/2)], width=LW)
+        # Right Triangle
+        r.draw_polygon([(cx, cy), (cx + S, cy - S/2), (cx + S, cy + S/2)], width=LW)
+        
+        if gp_list is not None:
+            gp_list.append((cx - S, cy))
+            gp_list.append((cx + S, cy))
+
+        if self.num_ports.get() == 3:
+            # Bottom Triangle starting at center
+            r.draw_polygon([(cx, cy), (cx - S/2, cy + S), (cx + S/2, cy + S)], width=LW)
+            if gp_list is not None: gp_list.append((cx, cy + S))
+
+        # 2. Draw the Ball Circle with WHITE FILL to partially cover triangle tips
+        r.draw_circle(cx, cy, R, width=LW, fill="white")
+
+        # 3. Draw internal L or T flow path on top of the white fill
+        ind_s = R * 0.7
+        if self.num_ports.get() == 3:
+            if self.pid_valve_type.get() == "L-Type":
+                r.draw_polyline([(cx, cy + ind_s), (cx, cy), (cx - ind_s, cy)], width=LW * 1.5)
+            else: # T-Type
+                r.draw_line(cx - ind_s, cy, cx + ind_s, cy, width=LW * 1.5)
+                r.draw_line(cx, cy, cx, cy + ind_s, width=LW * 1.5)
+
+        # 4. Actuator Stem
+        r.draw_line(cx, cy - R, cx, cy - S, width=LW)
+        r.draw_line(cx - S // 2, cy - S, cx + S //2 , cy - S, width=LW)
+
+    def _get_port_coords(self, port_num, box_x, box_y, box_w, box_h):
+        ports = self.num_ports.get()
+        mapping = {
+            2: {1: (0.5, 1.0), 2: (0.5, 0.0)},
+            3: {1: (0.5, 1.0), 2: (0.5, 0.0), 3: (0.8, 1.0)},
+            4: {1: (0.3, 1.0), 3: (0.7, 1.0), 2: (0.3, 0.0), 4: (0.7, 0.0)},
+            5: {1: (0.5, 1.0), 3: (0.8, 1.0), 5: (0.2, 1.0), 2: (0.8, 0.0), 4: (0.2, 0.0)}
+        }
+        pos_x, pos_y = mapping.get(ports, {}).get(port_num, (0.5, 0.5))
+        return (box_x + pos_x * box_w, box_y + pos_y * box_h)
+
+    def _draw_iso_logic(self, r, center_x, center_y, scale=1.0, collect_glue_points=None):
+        BOX_SIZE = 60 * scale
+        LINE_WIDTH = 1 * scale
+        FONT_SIZE = 10 * scale
+        
+        n_states = self.num_states.get()
+        total_w = BOX_SIZE * n_states
+        start_x = center_x - (total_w / 2)
+        top_y = center_y - (BOX_SIZE / 2)
+        
+        # 1. Draw Main Boxes
+        for i in range(n_states):
+            bx = start_x + i * BOX_SIZE
+            r.draw_rect(bx, top_y, bx + BOX_SIZE, top_y + BOX_SIZE, width=LINE_WIDTH)
+            
+            raw_data = self.state_configs[i].get()
+            connections = [s.strip() for s in raw_data.split(',') if s.strip()]
+            
+            for conn in connections:
+                if '-' in conn:
+                    parts = conn.split('-')
+                    src = parts[0].strip()
+                    dst = parts[1].strip()
+                    
+                    try:
+                        p_src = int(src)
+                        sx, sy = self._get_port_coords(p_src, bx, top_y, BOX_SIZE, BOX_SIZE)
+                        
+                        if dst.upper() == 'T':
+                            direction = 'up' if sy > top_y + BOX_SIZE/2 else 'down'
+                            ty = sy - (10*scale) if direction == 'up' else sy + (10*scale)
+                            r.draw_line(sx, sy, sx, ty, width=LINE_WIDTH)
+                            r.draw_t_stop(sx, ty, direction, size=5*scale, width=LINE_WIDTH)
+                        else:
+                            p_dst = int(dst)
+                            ex, ey = self._get_port_coords(p_dst, bx, top_y, BOX_SIZE, BOX_SIZE)
+                            r.draw_arrow(sx, sy, ex, ey, width=LINE_WIDTH)
+                    except ValueError:
+                        pass 
+
+        # 2. Draw Exterior Ports
+        default_state_idx = n_states - 1 if n_states == 2 else 1
+        ref_box_x = start_x + default_state_idx * BOX_SIZE
+        
+        for p in range(1, self.num_ports.get() + 1):
+            px, py = self._get_port_coords(p, ref_box_x, top_y, BOX_SIZE, BOX_SIZE)
+            
+            if py > center_y:
+                lbl_y = py + (15*scale)
+                align_text = 'bottom'
+            else:
+                lbl_y = py - (15*scale)
+                align_text = 'top'
+            
+            r.draw_text(px, lbl_y, str(p), font_size=FONT_SIZE, align_text=align_text)
+            
+            ext_y = py + (10*scale) if py > center_y else py - (10*scale)
+            r.draw_line(px, py, px, ext_y, width=LINE_WIDTH)
+
+            #ANCHOR_RADIUS = ANCHOR_RADIUS_BASE * scale
+            #r.draw_circle(px, ext_y, ANCHOR_RADIUS, width=0.5*scale)
+            
+            if collect_glue_points is not None:
+                collect_glue_points.append((px, ext_y))
+            
+        # 3. Draw Operators
+        OP_LENGTH = 30 * scale
+        S_15 = 15 * scale
+        S_10 = 10 * scale
+        S_5  = 5 * scale
+        
+        OP_HEIGHT = BOX_SIZE / 3
+        ly_center = center_y
+        OP_Y_TOP = ly_center - (OP_HEIGHT / 2)
+        OP_Y_BOT = ly_center + (OP_HEIGHT / 2)
+        
+        lx = start_x
+        l_offset = 0
+        
+        if self.left_ops["Spring"].get():
+            spring_amp = OP_HEIGHT 
+            spring_len = OP_LENGTH
+            r.draw_zigzag(lx - spring_len - l_offset, ly_center, spring_amp, spring_len, horizontal=True, width=LINE_WIDTH)
+            l_offset += OP_LENGTH
+            
+        if self.left_ops["Solenoid"].get():
+            r.draw_rect(lx - OP_LENGTH - l_offset, OP_Y_TOP, lx - l_offset, OP_Y_BOT, width=LINE_WIDTH)
+            r.draw_line(lx - OP_LENGTH - l_offset, OP_Y_TOP, lx - l_offset, OP_Y_BOT, width=LINE_WIDTH) 
+            l_offset += OP_LENGTH
+            
+        if self.left_ops["Pilot"].get():
+            r.draw_polygon([
+                (lx - l_offset, ly_center), 
+                (lx - l_offset - S_15, ly_center - S_10), 
+                (lx - l_offset - S_15, ly_center + S_10)
+            ], width=LINE_WIDTH)
+            l_offset += S_15
+            
+        if self.left_ops["Detent"].get():
+            dx1 = lx - l_offset - OP_LENGTH
+            dx2 = lx - l_offset
+            center_x_notch = dx1 + OP_LENGTH / 2
+            notch_start_x = center_x_notch - S_5
+            notch_end_x = center_x_notch + S_5
+            notch_y_peak = OP_Y_TOP + S_5
+
+            r.draw_line(dx1, OP_Y_TOP, dx1, OP_Y_BOT, width=LINE_WIDTH)
+            r.draw_line(dx2, OP_Y_TOP, dx2, OP_Y_BOT, width=LINE_WIDTH)
+            r.draw_line(dx1, OP_Y_BOT, dx2, OP_Y_BOT, width=LINE_WIDTH)
+            r.draw_line(dx1, OP_Y_TOP, notch_start_x, OP_Y_TOP, width=LINE_WIDTH)
+            r.draw_line(notch_end_x, OP_Y_TOP, dx2, OP_Y_TOP, width=LINE_WIDTH)
+            r.draw_line(notch_start_x, OP_Y_TOP, center_x_notch, notch_y_peak, width=LINE_WIDTH)
+            r.draw_line(center_x_notch, notch_y_peak, notch_end_x, OP_Y_TOP, width=LINE_WIDTH)
+            
+            l_offset += OP_LENGTH
+            
+        if self.left_ops["Lever"].get():
+            w_top = 25 * scale
+            w_bot = 10 * scale
+            lever_h = BOX_SIZE / 3
+            lever_top = ly_center - (lever_h / 2)
+            lever_bot = ly_center + (lever_h / 2)
+            
+            p_wall_top = (lx - l_offset, lever_top)
+            p_wall_bot = (lx - l_offset, lever_bot)
+            p_outer_bot = (lx - l_offset - w_bot, lever_bot)
+            p_outer_top = (lx - l_offset - w_top, lever_top)
+            
+            r.draw_polygon([p_wall_top, p_wall_bot, p_outer_bot, p_outer_top], width=LINE_WIDTH)
+            
+            vx = p_outer_top[0] - p_outer_bot[0]
+            vy = p_outer_top[1] - p_outer_bot[1]
+            
+            v_len = math.sqrt(vx*vx + vy*vy)
+            if v_len > 1e-6:
+                nx, ny = vx/v_len, vy/v_len
+                handle_len = 25 * scale
+                hx, hy = p_outer_top[0] + nx * handle_len, p_outer_top[1] + ny * handle_len
+                r.draw_line(p_outer_top[0], p_outer_top[1], hx, hy, width=LINE_WIDTH)
+                r.draw_circle(hx, hy, S_5, width=LINE_WIDTH)
+            l_offset += w_top
+
+        rx = start_x + total_w
+        r_offset = 0
+        
+        if self.right_ops["Spring"].get():
+            spring_amp = OP_HEIGHT
+            spring_len = OP_LENGTH
+            r.draw_zigzag(rx + r_offset, ly_center, spring_amp, spring_len, horizontal=True, width=LINE_WIDTH)
+            r_offset += OP_LENGTH
+            
+        if self.right_ops["Solenoid"].get():
+            r.draw_rect(rx + r_offset, OP_Y_TOP, rx + r_offset + OP_LENGTH, OP_Y_BOT, width=LINE_WIDTH)
+            r.draw_line(rx + r_offset, OP_Y_TOP, rx + r_offset + OP_LENGTH, OP_Y_BOT, width=LINE_WIDTH)
+            r_offset += OP_LENGTH
+            
+        if self.right_ops["Pilot"].get():
+            r.draw_polygon([
+                (rx + r_offset, ly_center), 
+                (rx + r_offset + S_15, ly_center - S_10), 
+                (rx + r_offset + S_15, ly_center + S_10)
+            ], width=LINE_WIDTH)
+            r_offset += S_15
+            
+        if self.right_ops["Detent"].get():
+            dx1 = rx + r_offset
+            dx2 = rx + r_offset + OP_LENGTH
+            center_x_notch = dx1 + OP_LENGTH / 2
+            notch_start_x = center_x_notch - S_5
+            notch_end_x = center_x_notch + S_5
+            notch_y_peak = OP_Y_TOP + S_5
+
+            r.draw_line(dx1, OP_Y_TOP, dx1, OP_Y_BOT, width=LINE_WIDTH)
+            r.draw_line(dx2, OP_Y_TOP, dx2, OP_Y_BOT, width=LINE_WIDTH)
+            r.draw_line(dx1, OP_Y_BOT, dx2, OP_Y_BOT, width=LINE_WIDTH)
+            r.draw_line(dx1, OP_Y_TOP, notch_start_x, OP_Y_TOP, width=LINE_WIDTH)
+            r.draw_line(notch_end_x, OP_Y_TOP, dx2, OP_Y_TOP, width=LINE_WIDTH)
+            r.draw_line(notch_start_x, OP_Y_TOP, center_x_notch, notch_y_peak, width=LINE_WIDTH)
+            r.draw_line(center_x_notch, notch_y_peak, notch_end_x, OP_Y_TOP, width=LINE_WIDTH)
+            r_offset += OP_LENGTH
+            
+        if self.right_ops["Lever"].get():
+            w_top = 25 * scale
+            w_bot = 10 * scale
+            lever_h = BOX_SIZE / 3
+            lever_top = ly_center - (lever_h / 2)
+            lever_bot = ly_center + (lever_h / 2)
+            
+            p_wall_top = (rx + r_offset, lever_top)
+            p_wall_bot = (rx + r_offset, lever_bot)
+            p_outer_bot = (rx + r_offset + w_bot, lever_bot)
+            p_outer_top = (rx + r_offset + w_top, lever_top)
+            
+            r.draw_polygon([p_wall_top, p_wall_bot, p_outer_bot, p_outer_top], width=LINE_WIDTH)
+            
+            vx = p_outer_top[0] - p_outer_bot[0] 
+            vy = p_outer_top[1] - p_outer_bot[1]
+            
+            v_len = math.sqrt(vx*vx + vy*vy)
+            if v_len > 1e-6:
+                nx, ny = vx/v_len, vy/v_len
+                handle_len = 25 * scale
+                hx, hy = p_outer_top[0] + nx * handle_len, p_outer_top[1] + ny * handle_len
+                r.draw_line(p_outer_top[0], p_outer_top[1], hx, hy, width=LINE_WIDTH)
+                r.draw_circle(hx, hy, S_5, width=LINE_WIDTH)
+            r_offset += w_top
+
+    def refresh_preview(self):
+        self.canvas.delete("all")
+        w = self.canvas.winfo_width()
+        h = self.canvas.winfo_height()
+        if w < 10: w, h = 400, 300
+        renderer = CanvasRenderer(self.canvas)
+        self.draw_symbol_logic(renderer, w/2, h/2, scale=self.zoom_level.get())
+
+    def save_svg(self):
+        invalid = self.validate_all_state_inputs()
+        if invalid:
+            if not messagebox.askyesno("Invalid inputs","Some inputs invalid. Continue export?"): return
+        filename = filedialog.asksaveasfilename(defaultextension=".svg", filetypes=[("SVG files","*.svg"),("All files","*.*")])
+        if not filename: return
+        svg_r = SvgRenderer(); glue_points=[]
+        self.draw_symbol_logic(svg_r, 300, 200, scale=1.0, collect_glue_points=glue_points)
+        bx,by,bX,bY = svg_r.get_bounds(); padding = SVG_PADDING
+        view_x = bx - padding; view_y = by - padding
+        view_w = (bX - bx) + 2*padding; view_h = (bY - by) + 2*padding
+        content = svg_r.get_svg(view_box=(view_x, view_y, view_w, view_h))
+        try:
+            with open(filename, "w", encoding="utf-8") as f: f.write(content)
+            logger.info("Saved SVG: %s (view_box=(%.2f,%.2f,%.2f,%.2f))", filename, view_x, view_y, view_w, view_h)
+            messagebox.showinfo("Success","SVG saved.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save: {e}")
+
+    def save_odg(self):
+        invalid = self.validate_all_state_inputs()
+        if invalid:
+            if not messagebox.askyesno("Invalid inputs","Some inputs invalid. Continue export?"): return
+        filename = filedialog.asksaveasfilename(defaultextension=".odg", filetypes=[("LibreOffice Draw","*.odg"),("All files","*.*")])
+        if not filename: return
+        # compute bounds using SvgRenderer (same absolute coordinates)
+        svg_r = SvgRenderer(); glue_points=[]
+        self.draw_symbol_logic(svg_r, 300, 200, scale=1.0, collect_glue_points=glue_points)
+        min_x,min_y,max_x,max_y = svg_r.get_bounds()
+        padding = SVG_PADDING
+        view_x = min_x - padding
+        view_y = min_y - padding
+        view_w = (max_x - min_x) + 2*padding
+        view_h = (max_y - min_y) + 2*padding
+        try:
+            self._write_odg_native(filename, glue_points, view_x, view_y, view_w, view_h)
+            messagebox.showinfo("Success", f"Saved {os.path.basename(filename)}")
+            logger.info("Saved ODG: %s", filename)
+        except Exception as e:
+            logger.exception("Failed to write ODG")
+            messagebox.showerror("Error", f"Failed to save ODG: {e}")
+
+    def _write_odg_native(self, odg_path, glue_points, view_x, view_y, view_w, view_h):
+        px_to_cm = 2.54 / DPI_DEFAULT
+        odf = OdfRenderer(view_x, view_y, view_w, view_h, px_to_cm)
+        
+        # 1. Draw the actual geometry
+        self.draw_symbol_logic(odf, 300, 200, scale=1.0)
+
+        group_xml = odf.get_xml_fragment(glue_points)
+
+        content_xml = f'''<?xml version="1.0" encoding="UTF-8"?>
+<office:document-content 
+  xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" 
+  xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" 
+  xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" 
+  xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" 
+  xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" 
+  xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" office:version="1.2">
+    <office:font-face-decls>
+      <style:font-face 
+        style:name="Arial" 
+        style:font-family="Arial" 
+        style:font-family-generic="swiss" 
+        style:font-pitch="variable"/>
+    </office:font-face-decls>
+    <office:automatic-styles>
+      <style:style style:name="gr1" style:family="graphic">
+        <style:graphic-properties 
+          draw:stroke="solid" 
+          svg:stroke-width="0.05cm" 
+          svg:stroke-color="#000000" 
+          draw:fill="none"/>
+      </style:style>
+      <style:style style:name="filled_black" style:family="graphic">
+        <style:graphic-properties 
+          draw:fill="solid" 
+          draw:fill-color="#000000" 
+          draw:stroke="solid" 
+          svg:stroke-color="#000000"/>
+      </style:style>
+      <style:style style:name="filled_white" style:family="graphic">
+        <style:graphic-properties 
+          draw:fill="solid" 
+          draw:fill-color="#FFFFFF" 
+          draw:stroke="solid" 
+          svg:stroke-width="0.05cm" 
+          svg:stroke-color="#000000"/>
+      </style:style>
+      <style:style style:name="invisible" style:family="graphic">
+        <style:graphic-properties 
+          draw:stroke="none"
+          draw:fill="solid"
+          draw:fill-color="#ffffff" 
+          draw:opacity="1%"/>
+      </style:style>
+      <style:style style:name="P1" style:family="paragraph" style:class="text">
+        <style:text-properties 
+          fo:color="#000000" 
+          fo:font-size="8pt" 
+          style:font-name="Arial"/>
+      </style:style>
+      <style:style style:name="text_black8p" style:family="graphic">
+        <style:graphic-properties 
+          draw:fill="none" 
+          draw:stroke="none" 
+          style:vertical-pos="middle" 
+          style:textarea-horizontal-align="center"/>
+        <style:text-properties 
+          style:font-name="Arial" 
+          fo:font-size="8pt" 
+          fo:color="#000000"/>
+      </style:style>
+      <style:style style:name="text_on_transparent" style:family="graphic">
+      <style:graphic-properties
+        draw:fill="none"
+        draw:stroke="none"/>
+        <style:text-properties
+          style:font-name="Arial"
+          fo:font-size="8pt"
+          fo:color="#000000"/>
+      </style:style>
+    </office:automatic-styles>
+    <office:body>
+      <office:drawing>
+        <draw:page 
+          draw:name="page1">{group_xml}
+        </draw:page>
+      </office:drawing>
+    </office:body>
+</office:document-content>'''
+
+        with zipfile.ZipFile(odg_path, 'w') as zf:
+            zf.writestr("mimetype", "application/vnd.oasis.opendocument.graphics")
+            zf.writestr("content.xml", content_xml)
+            zf.writestr("META-INF/manifest.xml", '<?xml version="1.0" encoding="UTF-8"?><manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.2"><manifest:file-entry manifest:full-path="/" manifest:media-type="application/vnd.oasis.opendocument.graphics"/><manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/></manifest:manifest>')
+
+
 
 if __name__ == "__main__":
     log_level = logging.DEBUG
