@@ -48,7 +48,23 @@ class CanvasRenderer(GraphicRenderer):
         fill = kwargs.get('fill', 'black')
         self.c.create_oval(x-r, y-r, x+r, y+r, outline="black", width=width, fill=fill)
     def draw_text(self, x, y, text, font_size=10, **kwargs):
-        self.c.create_text(x, y, text=text, fill="black", font=("Arial", int(font_size)))
+        # Support an align_text kwarg (uses tkinter anchors):
+        # 'top' -> anchor 's' (text bottom at y), 'bottom' -> anchor 'n' (text top at y)
+        align = kwargs.get('align_text') or kwargs.get('anchor')
+        anchor = None
+        if align:
+            if align == 'top':
+                anchor = 's'
+            elif align == 'bottom':
+                anchor = 'n'
+            elif align in ('center', 'middle'):
+                anchor = 'center'
+            else:
+                anchor = align
+        if anchor:
+            self.c.create_text(x, y, text=text, fill="black", font=("Arial", int(font_size)), anchor=anchor)
+        else:
+            self.c.create_text(x, y, text=text, fill="black", font=("Arial", int(font_size)))
     def draw_zigzag(self, x, y, zig_dim, length, horizontal=False, **kwargs):
         width = kwargs.get('width', 2)
         num_steps = 5
@@ -391,6 +407,9 @@ class OdfRenderer(GraphicRenderer):
 
     def get_xml_fragment(self, glue_points):
         empty_xml =""
+
+        # Reset any previously collected glue points to avoid duplicates
+        self.glue_points_xml = []
 
         # convert the glue points from pixel to xml in cm
         for idx, (x, y) in enumerate(glue_points):
@@ -1043,7 +1062,10 @@ class PneumaticDesignerApp:
 </office:document-content>'''
 
         with zipfile.ZipFile(odg_path, 'w') as zf:
-            zf.writestr("mimetype", "application/vnd.oasis.opendocument.graphics")
+            # The ODG specification requires the 'mimetype' entry to be the first
+            # file in the archive and stored (no compression). Write it first
+            # with ZIP_STORED, then write the rest.
+            zf.writestr("mimetype", "application/vnd.oasis.opendocument.graphics", compress_type=zipfile.ZIP_STORED)
             zf.writestr("content.xml", content_xml)
             zf.writestr("META-INF/manifest.xml", '<?xml version="1.0" encoding="UTF-8"?><manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.2"><manifest:file-entry manifest:full-path="/" manifest:media-type="application/vnd.oasis.opendocument.graphics"/><manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/></manifest:manifest>')
 
