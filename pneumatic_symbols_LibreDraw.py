@@ -19,67 +19,75 @@ class GraphicRenderer:
     def draw_polygon(self, points, **kwargs): pass
     def draw_polyline(self, points, **kwargs): pass
     def draw_arrow(self, x1, y1, x2, y2, **kwargs): pass
-    def draw_t_stop(self, x, y, direction='up', **kwargs): pass
-    def draw_zigzag(self, x, y, zig_width, height, horizontal=False, **kwargs): pass
+    def draw_t_stop(self, x, y, direction = 'up', **kwargs): pass
+    def draw_zigzag(self, x, y, zig_width, height, horizontal = False, **kwargs): pass
     def draw_circle(self, x, y, r, **kwargs): pass
-    def draw_text(self, x, y, text, font_size=10, **kwargs): pass
+    def draw_text(self, x, y, text, font_size = 10, **kwargs): pass
 
 
 class CanvasRenderer(GraphicRenderer):
     def __init__(self, canvas):
         self.c = canvas
 
+
     def draw_line(self, x1, y1, x2, y2, **kwargs):
         width = kwargs.get('width', 2)
-        self.c.create_line(x1, y1, x2, y2, width=width, fill="black")
+        self.c.create_line(x1, y1, x2, y2, width = width, fill = "black")
+
 
     def draw_rect(self, x1, y1, x2, y2, **kwargs):
         width = kwargs.get('width', 2)
-        self.c.create_rectangle(x1, y1, x2, y2, outline="black", width=width)
+        self.c.create_rectangle(x1, y1, x2, y2, outline = "black", width = width)
+
 
     def draw_polygon(self, points, **kwargs):
         width = kwargs.get('width', 2)
         flat = [coord for pt in points for coord in pt]
-        self.c.create_polygon(flat, outline="black", width=width, fill="")
+        self.c.create_polygon(flat, outline = "black", width = width, fill = "")
+
 
     def draw_polyline(self, points, **kwargs):
         width = kwargs.get('width', 2)
         flat = [coord for pt in points for coord in pt]
-        self.c.create_line(flat, fill="black", width=width)
+        self.c.create_line(flat, fill = "black", width = width)
+
 
     def draw_circle(self, x, y, r, **kwargs):
         width = kwargs.get('width', 2)
         fill = kwargs.get('fill', 'black')
-        self.c.create_oval(x-r, y-r, x+r, y+r, outline="black", width=width, fill=fill)
+        self.c.create_oval(x-r, y-r, x+r, y+r, outline = "black", width = width, fill = fill)
 
-    def draw_text(self, x, y, text, font_size=10, **kwargs):
+
+    def draw_text(self, x, y, text, font_size = 10, **kwargs):
         # Support an align_text kwarg (uses tkinter anchors):
         # 'top' -> anchor 's' (text bottom at y), 'bottom' -> anchor 'n' (text top at y)
         alignV = kwargs.get('align_text', "top")
         anchor = None
-        if alignV == 'top':
+        if alignV  == 'top':
             anchor = 'sw'
-        elif alignV == 'bottom':
+        elif alignV  == 'bottom':
             anchor = 'nw'
 
         if anchor is not None:
-            self.c.create_text(x, y, text=text, fill="black", font=("Arial", int(font_size)), anchor=anchor)
+            self.c.create_text(x, y, text = text, fill = "black", font = ("Arial", int(font_size)), anchor = anchor)
         else:
-            self.c.create_text(x, y, text=text, fill="black", font=("Arial", int(font_size)))
+            self.c.create_text(x, y, text = text, fill = "black", font = ("Arial", int(font_size)))
 
-    def draw_zigzag(self, x, y, zig_dim, length, horizontal=False, **kwargs):
+
+    def draw_zigzag(self, x, y, zig_dim, length, horizontal = False, **kwargs):
         width = kwargs.get('width', 2)
-        num_steps = 5
-        step_size = length / num_steps
+        NUM_STEPS = 5
+        step_size = length / NUM_STEPS
         pts = []
-        for i in range(num_steps + 1):
+        for i in range(NUM_STEPS + 1):
             pos = i * step_size
-            offset = zig_dim/2 if i % 2 == 1 else -zig_dim/2
+            offset = zig_dim / 2 if i % 2  == 1 else -zig_dim / 2
             if horizontal:
                 pts.extend([x + pos, y + offset])
             else:
                 pts.extend([x + offset, y + pos])
-        self.c.create_line(pts, width=width, fill="black")
+        self.c.create_line(pts, width = width, fill = "black")
+
 
     def draw_arrow(self, x1, y1, x2, y2, **kwargs):
         width = kwargs.get('width', 2)
@@ -87,17 +95,20 @@ class CanvasRenderer(GraphicRenderer):
         arrow_len = max(7 * width, 3)
         arrowshape = (arrow_len, arrow_len, arrow_len / 3)
 
-        self.c.create_line(x1, y1, x2, y2, arrow=tk.LAST, width=width, arrowshape=arrowshape, fill="black")
+        self.c.create_line(x1, y1, x2, y2, arrow = tk.LAST, width = width, arrowshape = arrowshape, fill = "black")
 
-    def draw_t_stop(self, x, y, direction='up', **kwargs):
-        size = kwargs.get('size', 5)
+
+    def draw_t_stop(self, x, y, direction = 'up', **kwargs):
+        size = kwargs.get('size', 7)
+        half_bar_size = 0.7 * size
         width = kwargs.get('width', 2)
-        if direction == 'up':
-            self.c.create_line(x, y, x, y-size, width=width, fill="black") # stem
-            self.c.create_line(x-size, y-size, x+size, y-size, width=width, fill="black") # bar
+        if direction  == 'up':
+            self.c.create_line(x, y, x, y - size, width = width, fill = "black") # stem
+            self.c.create_line(x - half_bar_size, y - size, x + half_bar_size, y - size, width = width, fill = "black") # bar
         else:
-            self.c.create_line(x, y, x, y+size, width=width, fill="black")
-            self.c.create_line(x-size, y+size, x+size, y+size, width=width, fill="black")
+            self.c.create_line(x, y, x, y + size, width = width, fill = "black")
+            self.c.create_line(x - half_bar_size, y + size, x + half_bar_size, y + size, width = width, fill = "black")
+
 
 class SvgRenderer(GraphicRenderer):
     def __init__(self):
@@ -106,6 +117,7 @@ class SvgRenderer(GraphicRenderer):
         self.min_y = float('inf')
         self.max_x = float('-inf')
         self.max_y = float('-inf')
+
 
     def _update(self, x, y):
         if x < self.min_x: 
@@ -117,6 +129,7 @@ class SvgRenderer(GraphicRenderer):
         if y > self.max_y: 
             self.max_y = y
 
+
     def _update_bounds(self, x, y):
         if x < self.min_x: 
             self.min_x = x
@@ -127,63 +140,71 @@ class SvgRenderer(GraphicRenderer):
         if y > self.max_y: 
             self.max_y = y
 
+
     def draw_rect(self, x1, y1, x2, y2, **kwargs):
-        rx, ry = min(x1,x2), min(y1,y2)
-        w, h = abs(x2-x1), abs(y2-y1)
-        self.elements.append(f'<rect x="{rx}" y="{ry}" width="{w}" height="{h}" stroke="black" fill="none"/>')
-        self._update(x1,y1) 
-        self._update(x2,y2)
+        rx, ry = min(x1, x2), min(y1, y2)
+        w, h = abs(x2 - x1), abs(y2 - y1)
+        self.elements.append(f'<rect x = "{rx}" y = "{ry}" width = "{w}" height = "{h}" stroke = "black" fill = "none"/>')
+        self._update(x1, y1) 
+        self._update(x2, y2)
+
 
     def draw_line(self, x1, y1, x2, y2, **kwargs):
-        self.elements.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="black"/>')
-        self._update(x1,y1)
-        self._update(x2,y2)
+        self.elements.append(f'<line x1 = "{x1}" y1 = "{y1}" x2 = "{x2}" y2 = "{y2}" stroke = "black"/>')
+        self._update(x1, y1)
+        self._update(x2, y2)
+
 
     def draw_circle(self, x, y, r, **kwargs):
         fill = kwargs.get('fill', 'none')
-        self.elements.append(f'<circle cx="{x}" cy="{y}" r="{r}" stroke="black" fill="{fill}"/>')
-        self._update(x-r,y-r)
-        self._update(x+r,y+r)
+        self.elements.append(f'<circle cx = "{x}" cy = "{y}" r = "{r}" stroke = "black" fill = "{fill}"/>')
+        self._update(x-r, y-r)
+        self._update(x+r, y+r)
+
 
     def draw_polygon(self, points, **kwargs):
-        pts = " ".join([f"{x},{y}" for (x,y) in points])
+        pts = " ".join([f"{x}, {y}" for (x, y) in points])
         fill = kwargs.get('fill', 'none')
-        self.elements.append(f'<polygon points="{pts}" stroke="black" fill="{fill}"/>')
-        for x,y in points: 
-            self._update(x,y)
+        self.elements.append(f'<polygon points = "{pts}" stroke = "black" fill = "{fill}"/>')
+        for x, y in points: 
+            self._update(x, y)
+
 
     def draw_polyline(self, points, **kwargs):
-        pts = " ".join([f"{x},{y}" for (x,y) in points])
-        self.elements.append(f'<polyline points="{pts}" stroke="black" fill="none"/>')
-        for x,y in points: 
-            self._update(x,y)
+        pts = " ".join([f"{x}, {y}" for (x, y) in points])
+        self.elements.append(f'<polyline points = "{pts}" stroke = "black" fill = "none"/>')
+        for x, y in points: 
+            self._update(x, y)
 
-    def draw_text(self, x, y, text, font_size=10, **kwargs):
+
+    def draw_text(self, x, y, text, font_size = 10, **kwargs):
         alignV = kwargs.get('align_text', 'bottom')
-        if alignV == 'bottom':
-            self.elements.append(f'<text x="{x}" y="{y}" dominant-baseline="hanging" font-size="{font_size}">{escape_xml(text)}</text>')
+        if alignV  == 'bottom':
+            self.elements.append(f'<text x = "{x}" y = "{y}" dominant-baseline = "hanging" font-size = "{font_size}">{escape_xml(text)}</text>')
         else:
-            self.elements.append(f'<text x="{x}" y="{y}" font-size="{font_size}">{escape_xml(text)}</text>')
-        self._update(x,y)
+            self.elements.append(f'<text x = "{x}" y = "{y}" font-size = "{font_size}">{escape_xml(text)}</text>')
+        self._update(x, y)
 
-    def draw_zigzag(self, x, y, zig_dim, length, horizontal=False, **kwargs):
-        num_steps = 5
-        step_size = length / num_steps
+
+    def draw_zigzag(self, x, y, zig_dim, length, horizontal = False, **kwargs):
+        NUM_STEPS = 5
+        step_size = length / NUM_STEPS
         pts_list = []
-        for i in range(num_steps + 1):
+        for i in range(NUM_STEPS + 1):
             pos = i * step_size
-            offset = zig_dim/2 if i % 2 == 1 else -zig_dim/2
+            offset = zig_dim / 2 if i % 2  == 1 else -zig_dim / 2
             curr_x = x + (pos if horizontal else offset)
             curr_y = y + (offset if horizontal else pos)
-            pts_list.append(f"{curr_x},{curr_y}")
+            pts_list.append(f"{curr_x}, {curr_y}")
             self._update(curr_x, curr_y)
         pts_str = " ".join(pts_list)
-        self.elements.append(f'<polyline points="{pts_str}" stroke="black" fill="none"/>')
+        self.elements.append(f'<polyline points = "{pts_str}" stroke = "black" fill = "none"/>')
+
 
     def draw_arrow(self, x1, y1, x2, y2, **kwargs):
         width = kwargs.get('width', 2)
         # Use underlying draw methods so bounds are updated automatically
-        self.draw_line(x1, y1, x2, y2, width=width)
+        self.draw_line(x1, y1, x2, y2, width = width)
         
         angle = math.atan2(y2 - y1, x2 - x1)
         arrow_len = 5 * width
@@ -195,32 +216,36 @@ class SvgRenderer(GraphicRenderer):
         ax2 = x2 + arrow_len * math.cos(angle2)
         ay2 = y2 + arrow_len * math.sin(angle2)
         
-        self.elements.append(f'<polygon points="{x2},{y2} {ax1},{ay1} {ax2},{ay2}" fill="black" />')
+        self.elements.append(f'<polygon points = "{x2}, {y2} {ax1}, {ay1} {ax2}, {ay2}" fill = "black" />')
         self._update_bounds(x2, y2)
         self._update_bounds(ax1, ay1)
         self._update_bounds(ax2, ay2)
 
-    def draw_t_stop(self, x, y, direction='up', **kwargs):
+
+    def draw_t_stop(self, x, y, direction = 'up', **kwargs):
         size = kwargs.get('size', 5)
+        half_bar_size = 0.7 * size
         width = kwargs.get('width', 2)
-        if direction == 'up':
-            self.draw_line(x, y, x, y-size, width=width)
-            self.draw_line(x-size, y-size, x+size, y-size, width=width)
+        if direction  == 'up':
+            self.draw_line(x, y, x, y - size, width = width)
+            self.draw_line(x - half_bar_size, y - size, x + half_bar_size, y - size, width = width)
         else:
-            self.draw_line(x, y, x, y+size, width=width)
-            self.draw_line(x-size, y+size, x+size, y+size, width=width)
+            self.draw_line(x, y, x, y + size, width = width)
+            self.draw_line(x - half_bar_size, y + size, x + half_bar_size, y + size, width = width)
+
 
     def get_bounds(self):
-        if self.min_x == float('inf'):
-            return (0,0,100,100)
+        if self.min_x  == float('inf'):
+            return (0, 0, 100, 100)
         return (self.min_x, self.min_y, self.max_x, self.max_y)
     
-    def get_svg(self, view_box=None):
+
+    def get_svg(self, view_box = None):
         if view_box:
             vx, vy, vw, vh = view_box
-            header = f'<?xml version="1.0" encoding="UTF-8"?><svg width="{vw}px" height="{vh}px" viewBox="{vx} {vy} {vw} {vh}" xmlns="http://www.w3.org/2000/svg">'
+            header = f'<?xml version = "1.0" encoding = "UTF-8"?><svg width = "{vw}px" height = "{vh}px" viewBox = "{vx} {vy} {vw} {vh}" xmlns = "http://www.w3.org/2000/svg">'
         else:
-            header = '<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg">'
+            header = '<?xml version = "1.0" encoding = "UTF-8"?><svg xmlns = "http://www.w3.org/2000/svg">'
         return header + "".join(self.elements) + "</svg>"
 
 
@@ -234,45 +259,51 @@ class OdfRenderer(GraphicRenderer):
         self.elements = []
         self.glue_points_xml = []
 
-        logger.debug(f'Created ODF render at {view_x_px},{view_y_px} sized {view_w_px}x{view_h_px} and {px_to_cm:.4f} px to cm')
+        logger.debug(f'Created ODF render at {view_x_px}, {view_y_px} sized {view_w_px}x{view_h_px} and {px_to_cm:.4f} px to cm')
+
 
     def _px_to_cm(self, px):
         return px * self.px_to_cm
 
+
     def _rel_px(self, x_px, y_px):
         return x_px - self.view_x, y_px - self.view_y
 
+
     def draw_rect(self, x1, y1, x2, y2, **kwargs):
-        rx_px, ry_px = min(x1,x2), min(y1,y2)
+        rx_px, ry_px = min(x1, x2), min(y1, y2)
         w_px, h_px = abs(x2-x1), abs(y2-y1)
         x_cm, y_cm = self._px_to_cm(rx_px - self.view_x), self._px_to_cm(ry_px - self.view_y)
         w_cm, h_cm = self._px_to_cm(w_px), self._px_to_cm(h_px)
-        geom = '<draw:enhanced-geometry svg:viewBox="0 0 21600 21600" draw:type="rectangle" draw:enhanced-path="M 0 0 L 21600 0 21600 21600 0 21600 0 0 Z N"/>'
-        el = (f'<draw:custom-shape draw:style-name="gr1" svg:width="{w_cm:.4f}cm" svg:height="{h_cm:.4f}cm" '
-              f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm">{geom}</draw:custom-shape>')
+        geom = '<draw:enhanced-geometry svg:viewBox = "0 0 21600 21600" draw:type = "rectangle" draw:enhanced-path = "M 0 0 L 21600 0 21600 21600 0 21600 0 0 Z N"/>'
+        el = (f'<draw:custom-shape draw:style-name = "gr1" svg:width = "{w_cm:.4f}cm" svg:height = "{h_cm:.4f}cm" '
+              f'svg:x = "{x_cm:.4f}cm" svg:y = "{y_cm:.4f}cm">{geom}</draw:custom-shape>')
         self.elements.append(el)
+
 
     def draw_line(self, x1, y1, x2, y2, **kwargs):
         x1_cm, y1_cm = self._px_to_cm(x1 - self.view_x), self._px_to_cm(y1 - self.view_y)
         x2_cm, y2_cm = self._px_to_cm(x2 - self.view_x), self._px_to_cm(y2 - self.view_y)
-        el = f'<draw:line draw:style-name="gr1" svg:x1="{x1_cm:.4f}cm" svg:y1="{y1_cm:.4f}cm" svg:x2="{x2_cm:.4f}cm" svg:y2="{y2_cm:.4f}cm"></draw:line>'
+        el = f'<draw:line draw:style-name = "gr1" svg:x1 = "{x1_cm:.4f}cm" svg:y1 = "{y1_cm:.4f}cm" svg:x2 = "{x2_cm:.4f}cm" svg:y2 = "{y2_cm:.4f}cm"></draw:line>'
         self.elements.append(el)
+
 
     def draw_circle(self, cx, cy, r, **kwargs):
         tl_x_px, tl_y_px = cx - r, cy - r
         x_cm, y_cm = self._px_to_cm(tl_x_px - self.view_x), self._px_to_cm(tl_y_px - self.view_y)
-        w_cm = h_cm = self._px_to_cm(2*r)
+        w_cm = h_cm = self._px_to_cm(2 * r)
 
         fill = kwargs.get('fill', 'black')
-        if fill == 'black':
+        if fill  == 'black':
             style = 'filled_black'
         else:
             style = 'filled_white'
 
-        geom = '<draw:enhanced-geometry svg:viewBox="0 0 21600 21600" draw:type="ellipse" draw:enhanced-path="U 10800 10800 10800 10800 0 360 Z N"/>'
-        el = (f'<draw:custom-shape draw:style-name="{style}" svg:width="{w_cm:.4f}cm" svg:height="{h_cm:.4f}cm" '
-              f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm">{geom}</draw:custom-shape>')
+        geom = '<draw:enhanced-geometry svg:viewBox = "0 0 21600 21600" draw:type = "ellipse" draw:enhanced-path = "U 10800 10800 10800 10800 0 360 Z N"/>'
+        el = (f'<draw:custom-shape draw:style-name = "{style}" svg:width = "{w_cm:.4f}cm" svg:height = "{h_cm:.4f}cm" '
+              f'svg:x = "{x_cm:.4f}cm" svg:y = "{y_cm:.4f}cm">{geom}</draw:custom-shape>')
         self.elements.append(el)
+
 
     def draw_polyline(self, points, **kwargs):
         rel_pts = [(x - self.view_x, y - self.view_y) for (x, y) in points]
@@ -281,13 +312,14 @@ class OdfRenderer(GraphicRenderer):
         w, h = max(1.0, maxx - minx), max(1.0, maxy - miny)
         
         # Internal integer scaling for ODF points
-        pts_attr = " ".join([f"{int((p[0]-minx)*(1000/w))},{int((p[1]-miny)*(1000/h))}" for p in rel_pts])
+        pts_attr = " ".join([f"{int((p[0] - minx) * (1000 / w))}, {int((p[1] - miny) * (1000 / h))}" for p in rel_pts])
         x_cm, y_cm = self._px_to_cm(minx), self._px_to_cm(miny)
         w_cm, h_cm = self._px_to_cm(w), self._px_to_cm(h)
         
-        el = (f'<draw:polyline draw:style-name="gr1" svg:width="{w_cm:.4f}cm" svg:height="{h_cm:.4f}cm" '
-              f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm" svg:viewBox="0 0 1000 1000" draw:points="{pts_attr}"></draw:polyline>')
+        el = (f'<draw:polyline draw:style-name = "gr1" svg:width = "{w_cm:.4f}cm" svg:height = "{h_cm:.4f}cm" '
+              f'svg:x = "{x_cm:.4f}cm" svg:y = "{y_cm:.4f}cm" svg:viewBox = "0 0 1000 1000" draw:points = "{pts_attr}"></draw:polyline>')
         self.elements.append(el)
+
 
     def draw_polygon(self, points, **kwargs):
         # Calculate relative points and bounding box
@@ -297,7 +329,7 @@ class OdfRenderer(GraphicRenderer):
         w, h = max(1.0, maxx - minx), max(1.0, maxy - miny)
         
         # Internal integer scaling for ODF points
-        pts_attr = " ".join([f"{int((p[0]-minx)*(1000/w))},{int((p[1]-miny)*(1000/h))}" for p in rel_pts])
+        pts_attr = " ".join([f"{int((p[0] - minx) * (1000 / w))}, {int((p[1] - miny) * (1000 / h))}" for p in rel_pts])
         x_cm, y_cm = self._px_to_cm(minx), self._px_to_cm(miny)
         w_cm, h_cm = self._px_to_cm(w), self._px_to_cm(h)
         
@@ -305,32 +337,33 @@ class OdfRenderer(GraphicRenderer):
         style_name = kwargs.get("style_name", "gr1")
         
         # 2. Use <draw:polygon>
-        el = (f'<draw:polygon draw:style-name="{style_name}" '
-            f'svg:width="{w_cm:.4f}cm" svg:height="{h_cm:.4f}cm" '
-            f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm" '
-            f'svg:viewBox="0 0 1000 1000" '
-            f'draw:points="{pts_attr}"></draw:polygon>')
+        el = (f'<draw:polygon draw:style-name = "{style_name}" '
+            f'svg:width = "{w_cm:.4f}cm" svg:height = "{h_cm:.4f}cm" '
+            f'svg:x = "{x_cm:.4f}cm" svg:y = "{y_cm:.4f}cm" '
+            f'svg:viewBox = "0 0 1000 1000" '
+            f'draw:points = "{pts_attr}"></draw:polygon>')
         
         self.elements.append(el)
 
-    def draw_text(self, x, y, text, font_size=10, **kwargs):
+
+    def draw_text(self, x, y, text, font_size = 10, **kwargs):
         text_height_cm = self._px_to_cm(font_size)
         text_width_cm = text_height_cm * 0.7
         alignV = kwargs.get('align_text', 'top')
-        if alignV == 'top':
+        if alignV  == 'top':
             y_cm = self._px_to_cm(y - self.view_y) - text_height_cm
         else:
             y_cm = self._px_to_cm(y - self.view_y) 
         x_cm = self._px_to_cm(x - self.view_x)
 
-        logger.debug(f'Text {text} at {x_cm:.2f}cm,{y_cm:.2f}cm aligment {alignV} width {text_width_cm}cm height {text_height_cm:.4f}cm')
+        logger.debug(f'Text {text} at {x_cm:.2f}cm, {y_cm:.2f}cm aligment {alignV} width {text_width_cm}cm height {text_height_cm:.4f}cm')
 
         el = (f'<draw:frame '
-                f'draw:style-name="text_black10p" '
-                f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm" '
-                f'svg:width="{text_width_cm}cm" svg:height="{text_height_cm:.4f}cm"> '
+                f'draw:style-name = "text_black10p" '
+                f'svg:x = "{x_cm:.4f}cm" svg:y = "{y_cm:.4f}cm" '
+                f'svg:width = "{text_width_cm}cm" svg:height = "{text_height_cm:.4f}cm"> '
                 f'<draw:text-box> '
-                  f'<text:p text:style-name="P1">'
+                  f'<text:p text:style-name = "P1">'
                     f'{escape_xml(str(text))}'
                   f'</text:p> '
                 f'</draw:text-box> '
@@ -338,19 +371,21 @@ class OdfRenderer(GraphicRenderer):
 
         self.elements.append(el)
 
-    def draw_zigzag(self, x, y, zig_dim, length, horizontal=False, **kwargs):
-        num_steps = 5
-        step_size = length / num_steps
+
+    def draw_zigzag(self, x, y, zig_dim, length, horizontal = False, **kwargs):
+        NUM_STEPS = 5
+        step_size = length / NUM_STEPS
         points = []
-        for i in range(num_steps + 1):
+        for i in range(NUM_STEPS + 1):
             pos = i * step_size
-            offset = zig_dim/2 if i % 2 == 1 else -zig_dim/2
+            offset = zig_dim / 2 if i % 2  == 1 else -zig_dim / 2
             curr_x = x + (pos if horizontal else offset)
             curr_y = y + (offset if horizontal else pos)
             points.append((curr_x, curr_y))
         
         # Reuse the ODF polygon logic to handle scaling and XML wrapping
         self.draw_polyline(points, **kwargs)
+
 
     def draw_arrow(self, x1, y1, x2, y2, **kwargs):
         # 1. Draw the main line
@@ -362,21 +397,26 @@ class OdfRenderer(GraphicRenderer):
         width = 4
         
         p1 = (x2, y2)
-        p2 = (x2 - length * math.cos(angle) + width * math.sin(angle),
+        p2 = (x2 - length * math.cos(angle) + width * math.sin(angle), 
               y2 - length * math.sin(angle) - width * math.cos(angle))
-        p3 = (x2 - length * math.cos(angle) - width * math.sin(angle),
+        p3 = (x2 - length * math.cos(angle) - width * math.sin(angle), 
               y2 - length * math.sin(angle) + width * math.cos(angle))
         
         # 3. Draw head
-        self.draw_polygon([p1, p2, p3], style_name="filled_black", **kwargs)
+        self.draw_polygon([p1, p2, p3], style_name = "filled_black", **kwargs)
 
-    def draw_t_stop(self, x, y, direction='up', **kwargs):
-        size = kwargs.get('size', 5)
-        # Draw the horizontal bar of the 'T'
-        if direction in ['up', 'down']:
-            self.draw_line(x - size, y, x + size, y, **kwargs)
-        else:  # left or right
-            self.draw_line(x, y - size, x, y + size, **kwargs)
+
+    def draw_t_stop(self, x, y, direction = 'up', **kwargs):
+        size = kwargs.get('size', 7)
+        half_bar_size = 0.7 * size
+        width = kwargs.get('width', 2)
+        if direction  == 'up':
+            self.draw_line(x, y, x, y - size, width = width) # Draw the vertical bar of the 'T'
+            self.draw_line(x - half_bar_size, y - size, x + half_bar_size, y - size, width = width) # Draw the horizontal bar of the 'T'
+        else:
+            self.draw_line(x, y, x, y + size, width = width)
+            self.draw_line(x - half_bar_size, y + size, x + half_bar_size, y + size, width = width)
+
 
     def _add_glue_point(self, x_px, y_px, index):
         # Calculate the position relative to the symbol's bounding box center
@@ -387,15 +427,16 @@ class OdfRenderer(GraphicRenderer):
         odf_x = int(rel_x * 10000)
         odf_y = int(rel_y * 10000)
 
-        logger.debug(f'gp {index} - {x_px}px,{y_px}px rel to center {rel_x*100:.1f}%,{rel_y*100:.1f}% {odf_x},{odf_y} odf')
+        logger.debug(f'gp {index} - {x_px}px, {y_px}px rel to center {rel_x * 100:.1f}%, {rel_y * 100:.1f}% {odf_x}, {odf_y} odf')
 
         # Use unitless svg:x and svg:y for internal glue points
-        gp = (f'<draw:glue-point draw:id="{index}" draw:index="{index}" '
-            f'svg:x="{odf_x}" svg:y="{odf_y}" '
-            f'draw:escape-direction="all" '
-            f'draw:glue-point-type="rectangle" '
-            f'draw:user-defined="true"/>')
+        gp = (f'<draw:glue-point draw:id = "{index}" draw:index = "{index}" '
+            f'svg:x = "{odf_x}" svg:y = "{odf_y}" '
+            f'draw:escape-direction = "all" '
+            f'draw:glue-point-type = "rectangle" '
+            f'draw:user-defined = "true"/>')
         self.glue_points_xml.append(gp)
+
 
     def _add_glue_point_cm_odf(self, x_px, y_px, index):
         # Calculate the position relative to the symbol's bounding box center
@@ -406,13 +447,13 @@ class OdfRenderer(GraphicRenderer):
         odf_x = rel_x * 10
         odf_y = rel_y * 10
 
-        logger.debug(f'gp {index} - {x_px}px,{y_px}px rel to center {rel_x*100:.1f}%,{rel_y*100:.1f}% {odf_x:.3f},{odf_y:.3f} odf')
+        logger.debug(f'gp {index} - {x_px}px, {y_px}px rel to center {rel_x * 100:.1f}%, {rel_y * 100:.1f}% {odf_x:.3f}, {odf_y:.3f} odf')
 
         # Use unitless svg:x and svg:y for internal glue points altough we have the cm unit
-        gp = (f'<draw:glue-point draw:id="{index}" draw:index="{index}" '
-            f'svg:x="{odf_x:.4f}cm" svg:y="{odf_y:.4f}cm" '
-            f'draw:escape-direction="all" '
-            f'draw:user-defined="true"/>')
+        gp = (f'<draw:glue-point draw:id = "{index}" draw:index = "{index}" '
+            f'svg:x = "{odf_x:.4f}cm" svg:y = "{odf_y:.4f}cm" '
+            f'draw:escape-direction = "all" '
+            f'draw:user-defined = "true"/>')
         self.glue_points_xml.append(gp)
 
 
@@ -425,13 +466,14 @@ class OdfRenderer(GraphicRenderer):
 
         # Note: No viewBox is used here; we use explicit 'cm' units
         gp = (f'<draw:glue-point '
-              f'draw:id="{index}" '
-              f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm" '
-              f'draw:escape-direction="all"/>')
+              f'draw:id = "{index}" '
+              f'svg:x = "{x_cm:.4f}cm" svg:y = "{y_cm:.4f}cm" '
+              f'draw:escape-direction = "all"/>')
         self.glue_points_xml.append(gp)
 
+
     def get_xml_fragment(self, glue_points):
-        empty_xml =""
+        empty_xml  = ""
 
         # Reset any previously collected glue points to avoid duplicates
         self.glue_points_xml = []
@@ -446,14 +488,15 @@ class OdfRenderer(GraphicRenderer):
         logger.debug(f'Created invisible shape {w_cm:.2f}cm x{h_cm:.2f}cm')  
         
         # This is the "invisible" shape that makes glue points functional
-        invisible_box = (f'<draw:rect draw:layer="layout" draw:style-name="invisible" svg:width="{w_cm:.4f}cm" '
-                        f'svg:height="{h_cm:.4f}cm" svg:x="0cm" svg:y="0cm" svg:viewBox="0 0 10000 10000">'
+        invisible_box = (f'<draw:rect draw:layer = "layout" draw:style-name = "invisible" svg:width = "{w_cm:.4f}cm" '
+                        f'svg:height = "{h_cm:.4f}cm" svg:x = "0cm" svg:y = "0cm" svg:viewBox = "0 0 10000 10000">'
                         f'{empty_xml}</draw:rect>')
         
         symbol_xml = "".join(self.elements)
 
-        return f'<draw:g draw:name="PneumaticGroup" svg:x="0cm" svg:y="0cm">\n{gps}\n{symbol_xml}\n{invisible_box}\n</draw:g>'
+        return f'<draw:g draw:name = "PneumaticGroup" svg:x = "0cm" svg:y = "0cm">\n{gps}\n{symbol_xml}\n{invisible_box}\n</draw:g>'
     
+
     def convert_points_px_to_cm(self, glue_points):
         glue_points_cm = []
         for glue_point in glue_points:
@@ -462,6 +505,7 @@ class OdfRenderer(GraphicRenderer):
 
         return glue_points_cm
     
+
 class PneumaticDesignerApp:
     def __init__(self, root):
         self.root = root
@@ -469,144 +513,149 @@ class PneumaticDesignerApp:
         self.root.geometry("1100x750")
         
         # Variables
-        self.standard = tk.StringVar(value="ISO 1219")
-        self.num_ports = tk.IntVar(value=4)
-        self.num_states = tk.IntVar(value=2)
-        self.pid_valve_type = tk.StringVar(value="L-Type") # For P&ID 3-way
-        self.zoom_level = tk.DoubleVar(value=1.0)
+        self.standard = tk.StringVar(value = "ISO 1219")
+        self.num_ports = tk.IntVar(value = 4)
+        self.num_states = tk.IntVar(value = 2)
+        self.pid_valve_type = tk.StringVar(value = "L-Type") # For P&ID 3-way
+        self.zoom_level = tk.DoubleVar(value = 1.0)
         self.show_pin_number = tk.BooleanVar(value = False)
         
-        self.left_ops = {k: tk.BooleanVar() for k in ["Spring","Solenoid","Lever","Pilot","Detent"]}
-        self.right_ops = {k: tk.BooleanVar() for k in ["Spring","Solenoid","Lever","Pilot","Detent"]}
+        self.left_ops = {k: tk.BooleanVar() for k in ["Spring", "Solenoid", "Lever", "Pilot", "Detent"]}
+        self.right_ops = {k: tk.BooleanVar() for k in ["Spring", "Solenoid", "Lever", "Pilot", "Detent"]}
         
         self.state_configs = []
         self.state_error_labels = []
         self._init_ui()
 
+
     def _init_ui(self):
-        main_frame = ttk.Frame(self.root, padding="10")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        main_frame = ttk.Frame(self.root, padding = "10")
+        main_frame.pack(fill = tk.BOTH, expand = True)
         
-        control_panel = ttk.LabelFrame(main_frame, text="Configuration", padding="10")
-        control_panel.pack(side=tk.LEFT, fill=tk.Y, padx=(0,10))
+        control_panel = ttk.LabelFrame(main_frame, text = "Configuration", padding = "10")
+        control_panel.pack(side = tk.LEFT, fill = tk.Y, padx = (0, 10))
 
         # Standard Selection
-        ttk.Label(control_panel, text="Standard:").grid(row=0, column=0, sticky="w", pady=5)
-        std_cb = ttk.Combobox(control_panel, textvariable=self.standard, values=["ISO 1219", "P&ID (ANSI/ISA)"], state="readonly", width=15)
-        std_cb.grid(row=0, column=1, sticky="e")
+        ttk.Label(control_panel, text = "Standard:").grid(row = 0, column = 0, sticky = "w", pady = 5)
+        std_cb = ttk.Combobox(control_panel, textvariable = self.standard, values = ["ISO 1219", "P&ID (ANSI/ISA)"], state = "readonly", width = 15)
+        std_cb.grid(row = 0, column = 1, sticky = "e")
         std_cb.bind("<<ComboboxSelected>>", self.handle_standard_change)
 
         # Port Selection
-        ttk.Label(control_panel, text="Number of Ports:").grid(row=1, column=0, sticky="w", pady=5)
-        self.port_cb = ttk.Combobox(control_panel, textvariable=self.num_ports, values=[2,3,4,5], state="readonly", width=5)
-        self.port_cb.grid(row=1,column=1,sticky="e")
+        ttk.Label(control_panel, text = "Number of Ports:").grid(row = 1, column = 0, sticky = "w", pady = 5)
+        self.port_cb = ttk.Combobox(control_panel, textvariable = self.num_ports, values = [2, 3, 4, 5], state = "readonly", width = 5)
+        self.port_cb.grid(row = 1, column = 1, sticky = "e")
         self.port_cb.bind("<<ComboboxSelected>>", self.rebuild_state_inputs)
 
         # State Selection (Disabled for P&ID)
-        ttk.Label(control_panel, text="Number of States:").grid(row=2, column=0, sticky="w", pady=5)
-        self.state_cb = ttk.Combobox(control_panel, textvariable=self.num_states, values=[2,3], state="readonly", width=5)
-        self.state_cb.grid(row=2,column=1,sticky="e")
+        ttk.Label(control_panel, text = "Number of States:").grid(row = 2, column = 0, sticky = "w", pady = 5)
+        self.state_cb = ttk.Combobox(control_panel, textvariable = self.num_states, values = [2, 3], state = "readonly", width = 5)
+        self.state_cb.grid(row = 2, column = 1, sticky = "e")
         self.state_cb.bind("<<ComboboxSelected>>", self.rebuild_state_inputs)
 
         # P&ID 3-Way Type
-        ttk.Label(control_panel, text="P&ID 3-Way Type:").grid(row=3, column=0, sticky="w", pady=5)
-        self.pid_type_cb = ttk.Combobox(control_panel, textvariable=self.pid_valve_type, values=["L-Type", "T-Type"], state="disabled", width=8)
-        self.pid_type_cb.grid(row=3, column=1, sticky="e")
+        ttk.Label(control_panel, text = "P&ID 3-Way Type:").grid(row = 3, column = 0, sticky = "w", pady = 5)
+        self.pid_type_cb = ttk.Combobox(control_panel, textvariable = self.pid_valve_type, values = ["L-Type", "T-Type"], state = "disabled", width = 8)
+        self.pid_type_cb.grid(row = 3, column = 1, sticky = "e")
         self.pid_type_cb.bind("<<ComboboxSelected>>", lambda e: self.refresh_preview())
 
         # Display zoom
-        ttk.Label(control_panel, text="Zoom Level:").grid(row=4, column=0, sticky="w", pady=5)
-        tk.Scale(control_panel, variable=self.zoom_level, from_=0.5, to=3.0, resolution=0.1, orient=tk.HORIZONTAL, length=100, command=lambda v: self.refresh_preview()).grid(row=4,column=1,sticky="e")
+        ttk.Label(control_panel, text = "Zoom Level:").grid(row = 4, column = 0, sticky = "w", pady = 5)
+        tk.Scale(control_panel, variable = self.zoom_level, from_ = 0.5, to = 3.0, resolution = 0.1, orient = tk.HORIZONTAL, length = 100, command = lambda v: self.refresh_preview()).grid(row = 4, column = 1, sticky = "e")
 
         # Pin number export option
-        ttk.Checkbutton(control_panel, text="Show pin number", variable=self.show_pin_number, command=self.refresh_preview).grid(row=5, column=0, sticky="e")
+        ttk.Checkbutton(control_panel, text = "Show pin number", variable = self.show_pin_number, command = self.refresh_preview).grid(row = 5, column = 0, sticky = "e")
 
-        ttk.Separator(control_panel, orient='horizontal').grid(row=6, column=0, columnspan=2, sticky="ew", pady=10)
+        ttk.Separator(control_panel, orient = 'horizontal').grid(row = 6, column = 0, columnspan = 2, sticky = "ew", pady = 10)
         
         # Operators
         op_frame = ttk.Frame(control_panel)
-        op_frame.grid(row=7, column=0, columnspan=2, sticky="ew")
-        ttk.Label(op_frame, text="Left Operator").grid(row=0, column=0, sticky="w")
-        ttk.Label(op_frame, text="Right Operator").grid(row=0, column=1, sticky="w")
+        op_frame.grid(row = 7, column = 0, columnspan = 2, sticky = "ew")
+        ttk.Label(op_frame, text = "Left Operator").grid(row = 0, column = 0, sticky = "w")
+        ttk.Label(op_frame, text = "Right Operator").grid(row = 0, column = 1, sticky = "w")
         r_idx = 1
         for name in self.left_ops:
-            ttk.Checkbutton(op_frame, text=name, variable=self.left_ops[name], command=self.refresh_preview).grid(row=r_idx, column=0, sticky="w")
-            ttk.Checkbutton(op_frame, text=name, variable=self.right_ops[name], command=self.refresh_preview).grid(row=r_idx, column=1, sticky="w")
+            ttk.Checkbutton(op_frame, text = name, variable = self.left_ops[name], command = self.refresh_preview).grid(row = r_idx, column = 0, sticky = "w")
+            ttk.Checkbutton(op_frame, text = name, variable = self.right_ops[name], command = self.refresh_preview).grid(row = r_idx, column = 1, sticky = "w")
             r_idx += 1
 
-        ttk.Separator(control_panel, orient='horizontal').grid(row=8, column=0, columnspan=2, sticky="ew", pady=10)
+        ttk.Separator(control_panel, orient = 'horizontal').grid(row = 8, column = 0, columnspan = 2, sticky = "ew", pady = 10)
 
-        self.state_input_frame = ttk.LabelFrame(control_panel, text="Flow Paths (e.g. 1-2, 3-T)")
-        self.state_input_frame.grid(row=9,column=0,columnspan=2,sticky="ew", pady=5)
-        help_lbl = ttk.Label(control_panel, text="Format: '1-2' (connect),\n'1-T' (block).\nSeparate with commas.", font=("Arial",8), foreground="gray")
-        help_lbl.grid(row=10,column=0,columnspan=2)
+        self.state_input_frame = ttk.LabelFrame(control_panel, text = "Flow Paths (e.g. 1-2, 3-T)")
+        self.state_input_frame.grid(row = 9, column = 0, columnspan = 2, sticky = "ew", pady = 5)
+        help_lbl = ttk.Label(control_panel, text = "Format: '1-2' (connect), \n'1-T' (block).\nSeparate with commas.", font = ("Arial", 8), foreground = "gray")
+        help_lbl.grid(row = 10, column = 0, columnspan = 2)
         btn_frame = ttk.Frame(control_panel)
-        btn_frame.grid(row=11,column=0,columnspan=2,pady=20)
+        btn_frame.grid(row = 11, column = 0, columnspan = 2, pady = 20)
        
         btn_frame = ttk.Frame(control_panel)
-        btn_frame.grid(row=11,column=0,columnspan=2,pady=20)
-        ttk.Button(btn_frame, text="Save SVG", command=self.save_svg).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="Save ODG", command=self.save_odg).pack(side=tk.LEFT, padx=5)
+        btn_frame.grid(row = 11, column = 0, columnspan = 2, pady = 20)
+        ttk.Button(btn_frame, text = "Save SVG", command = self.save_svg).pack(side = tk.LEFT, padx = 5)
+        ttk.Button(btn_frame, text = "Save ODG", command = self.save_odg).pack(side = tk.LEFT, padx = 5)
 
-        self.canvas_frame = ttk.LabelFrame(main_frame, text="Preview", padding="10")
-        self.canvas_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
-        self.canvas = tk.Canvas(self.canvas_frame, bg="white")
-        self.canvas.pack(fill=tk.BOTH, expand=True)
+        self.canvas_frame = ttk.LabelFrame(main_frame, text = "Preview", padding = "10")
+        self.canvas_frame.pack(side = tk.RIGHT, fill = tk.BOTH, expand = True)
+        self.canvas = tk.Canvas(self.canvas_frame, bg = "white")
+        self.canvas.pack(fill = tk.BOTH, expand = True)
         
         self.rebuild_state_inputs()
 
-    def handle_standard_change(self, event=None):
-        if self.standard.get() == "P&ID (ANSI/ISA)":
-            self.state_cb.config(state="disabled")
-            self.port_cb.config(values=[2, 3])
+
+    def handle_standard_change(self, event = None):
+        if self.standard.get()  == "P&ID (ANSI/ISA)":
+            self.state_cb.config(state = "disabled")
+            self.port_cb.config(values = [2, 3])
             if self.num_ports.get() > 3: 
                 self.num_ports.set(2)
         else:
-            self.state_cb.config(state="readonly")
-            self.port_cb.config(values=[2, 3, 4, 5])
+            self.state_cb.config(state = "readonly")
+            self.port_cb.config(values = [2, 3, 4, 5])
         
         self.rebuild_state_inputs()
 
-    def rebuild_ISO_state_inputs(self, event=None):
+
+    def rebuild_ISO_state_inputs(self, event = None):
         for w in self.state_input_frame.winfo_children(): 
             w.destroy()
         self.state_configs.clear() 
         self.state_error_labels.clear()
         n_states = self.num_states.get()
         for i in range(n_states):
-            lbl_text = f"Pos {i+1} (Left):" if i==0 else (f"Pos {i+1} (Right):" if i==n_states-1 else f"Pos {i+1} (Center):")
-            ttk.Label(self.state_input_frame, text=lbl_text).grid(row=i,column=0,sticky="w",pady=2)
+            lbl_text = f"Pos {i+1} (Left):" if i == 0 else (f"Pos {i+1} (Right):" if i == n_states-1 else f"Pos {i+1} (Center):")
+            ttk.Label(self.state_input_frame, text = lbl_text).grid(row = i, column = 0, sticky = "w", pady = 2)
             var = tk.StringVar()
-            if self.num_ports.get()==4:
-                var.set("1-2, 4-3" if i==0 else "1-4, 2-3")
-            elif self.num_ports.get()==5:
-                var.set("1-2, 4-5" if i==0 else "1-4, 2-3")
-            elif self.num_ports.get()==3:
-                var.set("1-T, 2-3" if i==0 else "1-2, 3-T")
-            elif self.num_ports.get()==2:
-                var.set("1-2" if i==0 else "1-T,2-T")
-            entry = ttk.Entry(self.state_input_frame, textvariable=var, width=15)
-            entry.grid(row=i,column=1,sticky="e",pady=2)
+            if self.num_ports.get() == 4:
+                var.set("1-2, 4-3" if i == 0 else "1-4, 2-3")
+            elif self.num_ports.get() == 5:
+                var.set("1-2, 4-5" if i == 0 else "1-4, 2-3")
+            elif self.num_ports.get() == 3:
+                var.set("1-T, 2-3" if i == 0 else "1-2, 3-T")
+            elif self.num_ports.get() == 2:
+                var.set("1-2" if i == 0 else "1-T, 2-T")
+            entry = ttk.Entry(self.state_input_frame, textvariable = var, width = 15)
+            entry.grid(row = i, column = 1, sticky = "e", pady = 2)
             entry.bind("<Return>", lambda e: self.refresh_preview())
             entry.bind("<FocusOut>", lambda e: self.refresh_preview())
-            err_lbl = tk.Label(self.state_input_frame, text="", fg="red", font=("Arial",8)) 
-            err_lbl.grid(row=i,column=2,sticky="w", padx=(6,0))
+            err_lbl = tk.Label(self.state_input_frame, text = "", fg = "red", font = ("Arial", 8)) 
+            err_lbl.grid(row = i, column = 2, sticky = "w", padx = (6, 0))
             self.state_configs.append(var) 
             self.state_error_labels.append(err_lbl)
         self.refresh_preview()
 
-    def rebuild_state_inputs(self, event=None):
-        if self.standard.get() == "P&ID (ANSI/ISA)" :
+
+    def rebuild_state_inputs(self, event = None):
+        if self.standard.get()  == "P&ID (ANSI/ISA)" :
             self.rebuild_PID_state_inputs()
         else:
             self.rebuild_ISO_state_inputs()
-            
-    def rebuild_PID_state_inputs(self, event=None):
+
+
+    def rebuild_PID_state_inputs(self, event = None):
         # Toggle 3-way P&ID dropdown
-        if self.num_ports.get() == 3:
-            self.pid_type_cb.config(state="readonly")
+        if self.num_ports.get()  == 3:
+            self.pid_type_cb.config(state = "readonly")
         else:
-            self.pid_type_cb.config(state="disabled")
+            self.pid_type_cb.config(state = "disabled")
 
         for w in self.state_input_frame.winfo_children(): 
             w.destroy()
@@ -615,45 +664,48 @@ class PneumaticDesignerApp:
 
         # P&ID usually shows a single static symbol       
         lbl_text = "Valve State:" 
-        ttk.Label(self.state_input_frame, text=lbl_text).grid(row=1,column=0,sticky="w")
+        ttk.Label(self.state_input_frame, text = lbl_text).grid(row = 1, column = 0, sticky = "w")
         var = tk.StringVar()
         # Default logic
         var.set("P&ID Internal") # Content ignored for P&ID
             
-        ent = ttk.Entry(self.state_input_frame, textvariable=var, state="disabled")
-        ent.grid(row=1, column=1)
+        ent = ttk.Entry(self.state_input_frame, textvariable = var, state = "disabled")
+        ent.grid(row = 1, column = 1)
         self.state_configs.append(var)
-        self.state_error_labels.append(tk.Label(self.state_input_frame, text=""))
+        self.state_error_labels.append(tk.Label(self.state_input_frame, text = ""))
 
         self.refresh_preview()
 
-    def draw_symbol_logic(self, r, center_x, center_y, scale=1.0, collect_glue_points=None):
-        if self.standard.get() == "P&ID (ANSI/ISA)":
+
+    def draw_symbol_logic(self, r, center_x, center_y, scale = 1.0, collect_glue_points = None):
+        if self.standard.get()  == "P&ID (ANSI/ISA)":
             self._draw_pid_logic(r, center_x, center_y, scale, collect_glue_points)
         else:
             self._draw_iso_logic(r, center_x, center_y, scale, collect_glue_points)
 
+
     def validate_all_state_inputs(self):
-        invalid=[]
+        invalid = []
         if self.standard.get() != "P&ID (ANSI/ISA)":
-            for idx,var in enumerate(self.state_configs):
-                raw=var.get() 
-                tokens=[s.strip() for s in raw.split(',')] 
-                bad=False
+            for idx, var in enumerate(self.state_configs):
+                raw = var.get() 
+                tokens = [s.strip() for s in raw.split(',')] 
+                bad = False
                 for t in tokens:
-                    if t=="" : 
+                    if t == "" : 
                         continue
                     if not self.is_valid_connection(t): 
-                        bad=True
+                        bad = True
                         break
-                lbl=self.state_error_labels[idx]
+                lbl = self.state_error_labels[idx]
                 if bad: 
-                    lbl.config(text="Invalid format")
+                    lbl.config(text = "Invalid format")
                     invalid.append(idx)
                 else: 
-                    lbl.config(text="")
+                    lbl.config(text = "")
         return invalid
     
+
     def is_valid_connection(self, token):
         token = token.strip()
         if not token: 
@@ -661,24 +713,25 @@ class PneumaticDesignerApp:
         if '-' not in token: 
             return False
         parts = token.split('-')
-        if len(parts)!=2: 
+        if len(parts) != 2: 
             return False
-        left,right = parts[0].strip(), parts[1].strip()
+        left, right = parts[0].strip(), parts[1].strip()
         try:
             lv = int(left) 
-            if lv <1 or lv>self.num_ports.get(): 
+            if lv < 1 or lv > self.num_ports.get(): 
                 return False
         except ValueError:
             return False
-        if right.upper()=='T': 
+        if right.upper() == 'T': 
             return True
         try:
-            rv=int(right)
-            if rv<1 or rv>self.num_ports.get(): 
+            rv = int(right)
+            if rv < 1 or rv > self.num_ports.get(): 
                 return False
         except ValueError:
             return False
         return True
+
 
     def _draw_pid_logic(self, r, cx, cy, scale, gp_list):
         """Draws P&ID ball valve with overlapping components."""
@@ -688,52 +741,55 @@ class PneumaticDesignerApp:
 
         # 1. Draw the Triangles starting at the same point (cx, cy)
         # Left Triangle
-        r.draw_polygon([(cx, cy), (cx - S, cy - S/2), (cx - S, cy + S/2)], width=LW)
+        r.draw_polygon([(cx, cy), (cx - S, cy - S / 2), (cx - S, cy + S / 2)], width = LW)
         # Right Triangle
-        r.draw_polygon([(cx, cy), (cx + S, cy - S/2), (cx + S, cy + S/2)], width=LW)
+        r.draw_polygon([(cx, cy), (cx + S, cy - S / 2), (cx + S, cy + S / 2)], width = LW)
         
         if gp_list is not None:
             gp_list.append((cx - S, cy))
             gp_list.append((cx + S, cy))
 
-        if self.num_ports.get() == 3:
+        if self.num_ports.get()  == 3:
             # Bottom Triangle starting at center
-            r.draw_polygon([(cx, cy), (cx - S/2, cy + S), (cx + S/2, cy + S)], width=LW)
+            r.draw_polygon([(cx, cy), (cx - S / 2, cy + S), (cx + S / 2, cy + S)], width = LW)
             if gp_list is not None: 
                 gp_list.append((cx, cy + S))
 
         # 2. Draw the Ball Circle with WHITE FILL to partially cover triangle tips
-        r.draw_circle(cx, cy, R, width=LW, fill="white")
+        r.draw_circle(cx, cy, R, width = LW, fill = "white")
 
         # 3. Draw internal L or T flow path on top of the white fill
         ind_s = R * 0.7
-        if self.num_ports.get() == 3:
-            if self.pid_valve_type.get() == "L-Type":
-                r.draw_polyline([(cx, cy + ind_s), (cx, cy), (cx - ind_s, cy)], width=LW * 1.5)
+        if self.num_ports.get()  == 3:
+            if self.pid_valve_type.get()  == "L-Type":
+                r.draw_polyline([(cx, cy + ind_s), (cx, cy), (cx - ind_s, cy)], width = LW * 1.5)
             else: # T-Type
-                r.draw_line(cx - ind_s, cy, cx + ind_s, cy, width=LW * 1.5)
-                r.draw_line(cx, cy, cx, cy + ind_s, width=LW * 1.5)
+                r.draw_line(cx - ind_s, cy, cx + ind_s, cy, width = LW * 1.5)
+                r.draw_line(cx, cy, cx, cy + ind_s, width = LW * 1.5)
 
         # 4. Actuator Stem
-        r.draw_line(cx, cy - R, cx, cy - S, width=LW)
-        r.draw_line(cx - S // 2, cy - S, cx + S //2 , cy - S, width=LW)
+        r.draw_line(cx, cy - R, cx, cy - S, width = LW)
+        r.draw_line(cx - S // 2, cy - S, cx + S // 2 , cy - S, width = LW)
+
 
     def _get_port_coords(self, port_num, box_x, box_y, box_w, box_h):
         ports = self.num_ports.get()
         mapping = {
-            2: {1: (0.5, 1.0), 2: (0.5, 0.0)},
-            3: {1: (0.5, 1.0), 2: (0.5, 0.0), 3: (0.8, 1.0)},
-            4: {1: (0.3, 1.0), 3: (0.7, 1.0), 2: (0.3, 0.0), 4: (0.7, 0.0)},
+            2: {1: (0.5, 1.0), 2: (0.5, 0.0)}, 
+            3: {1: (0.5, 1.0), 2: (0.5, 0.0), 3: (0.8, 1.0)}, 
+            4: {1: (0.3, 1.0), 3: (0.7, 1.0), 2: (0.3, 0.0), 4: (0.7, 0.0)}, 
             5: {1: (0.5, 1.0), 3: (0.8, 1.0), 5: (0.2, 1.0), 2: (0.8, 0.0), 4: (0.2, 0.0)}
         }
         pos_x, pos_y = mapping.get(ports, {}).get(port_num, (0.5, 0.5))
         return (box_x + pos_x * box_w, box_y + pos_y * box_h)
 
-    def _draw_iso_logic(self, r, center_x, center_y, scale=1.0, collect_glue_points=None):
+
+    def _draw_iso_logic(self, r, center_x, center_y, scale = 1.0, collect_glue_points = None):
         BOX_SIZE = 60 * scale
         LINE_WIDTH = 1 * scale
         FONT_SIZE = 10 * scale
         PORT_SIZE = 10 * scale
+        TEE_SIZE = 7 * scale
         
         n_states = self.num_states.get()
         total_w = BOX_SIZE * n_states
@@ -743,7 +799,7 @@ class PneumaticDesignerApp:
         # 1. Draw Main Boxes
         for i in range(n_states):
             bx = start_x + i * BOX_SIZE
-            r.draw_rect(bx, top_y, bx + BOX_SIZE, top_y + BOX_SIZE, width=LINE_WIDTH)
+            r.draw_rect(bx, top_y, bx + BOX_SIZE, top_y + BOX_SIZE, width = LINE_WIDTH)
             
             raw_data = self.state_configs[i].get()
             connections = [s.strip() for s in raw_data.split(',') if s.strip()]
@@ -758,20 +814,18 @@ class PneumaticDesignerApp:
                         p_src = int(src)
                         sx, sy = self._get_port_coords(p_src, bx, top_y, BOX_SIZE, BOX_SIZE)
                         
-                        if dst.upper() == 'T':
-                            direction = 'up' if sy > top_y + BOX_SIZE/2 else 'down'
-                            ty = sy - (10*scale) if direction == 'up' else sy + (10*scale)
-                            r.draw_line(sx, sy, sx, ty, width=LINE_WIDTH)
-                            r.draw_t_stop(sx, ty, direction, size=5*scale, width=LINE_WIDTH)
+                        if dst.upper()  == 'T':
+                            direction = 'up' if sy > top_y + BOX_SIZE / 2 else 'down'
+                            r.draw_t_stop(sx, sy, direction, size = TEE_SIZE, width = LINE_WIDTH)
                         else:
                             p_dst = int(dst)
                             ex, ey = self._get_port_coords(p_dst, bx, top_y, BOX_SIZE, BOX_SIZE)
-                            r.draw_arrow(sx, sy, ex, ey, width=LINE_WIDTH)
+                            r.draw_arrow(sx, sy, ex, ey, width = LINE_WIDTH)
                     except ValueError:
                         pass 
 
         # 2. Draw Exterior Ports
-        default_state_idx = n_states - 1 if n_states == 2 else 1
+        default_state_idx = n_states - 1 if n_states  == 2 else 1
         ref_box_x = start_x + default_state_idx * BOX_SIZE
         
         for p in range(1, self.num_ports.get() + 1):
@@ -783,10 +837,10 @@ class PneumaticDesignerApp:
                 else:
                     align_text = 'top'
                 
-                r.draw_text(px, py, str(p), font_size=FONT_SIZE, align_text=align_text)
+                r.draw_text(px, py, str(p), font_size = FONT_SIZE, align_text = align_text)
             
             ext_y = py + PORT_SIZE if py > center_y else py - PORT_SIZE
-            r.draw_line(px, py, px, ext_y, width=LINE_WIDTH)
+            r.draw_line(px, py, px, ext_y, width = LINE_WIDTH)
             
             if collect_glue_points is not None:
                 collect_glue_points.append((px, ext_y))
@@ -808,12 +862,12 @@ class PneumaticDesignerApp:
         if self.left_ops["Spring"].get():
             spring_amp = OP_HEIGHT 
             spring_len = OP_LENGTH
-            r.draw_zigzag(lx - spring_len - l_offset, ly_center, spring_amp, spring_len, horizontal=True, width=LINE_WIDTH)
+            r.draw_zigzag(lx - spring_len - l_offset, ly_center, spring_amp, spring_len, horizontal = True, width = LINE_WIDTH)
             l_offset += OP_LENGTH
             
         if self.left_ops["Solenoid"].get():
-            r.draw_rect(lx - OP_LENGTH - l_offset, OP_Y_TOP, lx - l_offset, OP_Y_BOT, width=LINE_WIDTH)
-            r.draw_line(lx - OP_LENGTH - l_offset, OP_Y_TOP, lx - l_offset, OP_Y_BOT, width=LINE_WIDTH) 
+            r.draw_rect(lx - OP_LENGTH - l_offset, OP_Y_TOP, lx - l_offset, OP_Y_BOT, width = LINE_WIDTH)
+            r.draw_line(lx - OP_LENGTH - l_offset, OP_Y_TOP, lx - l_offset, OP_Y_BOT, width = LINE_WIDTH) 
             l_offset += OP_LENGTH
             
         if self.left_ops["Pilot"].get():
@@ -821,7 +875,7 @@ class PneumaticDesignerApp:
                 (lx - l_offset, ly_center), 
                 (lx - l_offset - S_15, ly_center - S_10), 
                 (lx - l_offset - S_15, ly_center + S_10)
-            ], width=LINE_WIDTH)
+            ], width = LINE_WIDTH)
             l_offset += S_15
             
         if self.left_ops["Detent"].get():
@@ -832,13 +886,13 @@ class PneumaticDesignerApp:
             notch_end_x = center_x_notch + S_5
             notch_y_peak = OP_Y_TOP + S_5
 
-            r.draw_line(dx1, OP_Y_TOP, dx1, OP_Y_BOT, width=LINE_WIDTH)
-            r.draw_line(dx2, OP_Y_TOP, dx2, OP_Y_BOT, width=LINE_WIDTH)
-            r.draw_line(dx1, OP_Y_BOT, dx2, OP_Y_BOT, width=LINE_WIDTH)
-            r.draw_line(dx1, OP_Y_TOP, notch_start_x, OP_Y_TOP, width=LINE_WIDTH)
-            r.draw_line(notch_end_x, OP_Y_TOP, dx2, OP_Y_TOP, width=LINE_WIDTH)
-            r.draw_line(notch_start_x, OP_Y_TOP, center_x_notch, notch_y_peak, width=LINE_WIDTH)
-            r.draw_line(center_x_notch, notch_y_peak, notch_end_x, OP_Y_TOP, width=LINE_WIDTH)
+            r.draw_line(dx1, OP_Y_TOP, dx1, OP_Y_BOT, width = LINE_WIDTH)
+            r.draw_line(dx2, OP_Y_TOP, dx2, OP_Y_BOT, width = LINE_WIDTH)
+            r.draw_line(dx1, OP_Y_BOT, dx2, OP_Y_BOT, width = LINE_WIDTH)
+            r.draw_line(dx1, OP_Y_TOP, notch_start_x, OP_Y_TOP, width = LINE_WIDTH)
+            r.draw_line(notch_end_x, OP_Y_TOP, dx2, OP_Y_TOP, width = LINE_WIDTH)
+            r.draw_line(notch_start_x, OP_Y_TOP, center_x_notch, notch_y_peak, width = LINE_WIDTH)
+            r.draw_line(center_x_notch, notch_y_peak, notch_end_x, OP_Y_TOP, width = LINE_WIDTH)
             
             l_offset += OP_LENGTH
             
@@ -854,18 +908,18 @@ class PneumaticDesignerApp:
             p_outer_bot = (lx - l_offset - w_bot, lever_bot)
             p_outer_top = (lx - l_offset - w_top, lever_top)
             
-            r.draw_polygon([p_wall_top, p_wall_bot, p_outer_bot, p_outer_top], width=LINE_WIDTH)
+            r.draw_polygon([p_wall_top, p_wall_bot, p_outer_bot, p_outer_top], width = LINE_WIDTH)
             
             vx = p_outer_top[0] - p_outer_bot[0]
             vy = p_outer_top[1] - p_outer_bot[1]
             
-            v_len = math.sqrt(vx*vx + vy*vy)
+            v_len = math.sqrt(vx * vx + vy * vy)
             if v_len > 1e-6:
-                nx, ny = vx/v_len, vy/v_len
+                nx, ny = vx / v_len, vy / v_len
                 handle_len = 25 * scale
                 hx, hy = p_outer_top[0] + nx * handle_len, p_outer_top[1] + ny * handle_len
-                r.draw_line(p_outer_top[0], p_outer_top[1], hx, hy, width=LINE_WIDTH)
-                r.draw_circle(hx, hy, S_5, width=LINE_WIDTH)
+                r.draw_line(p_outer_top[0], p_outer_top[1], hx, hy, width = LINE_WIDTH)
+                r.draw_circle(hx, hy, S_5, width = LINE_WIDTH)
             l_offset += w_top
 
         rx = start_x + total_w
@@ -874,12 +928,12 @@ class PneumaticDesignerApp:
         if self.right_ops["Spring"].get():
             spring_amp = OP_HEIGHT
             spring_len = OP_LENGTH
-            r.draw_zigzag(rx + r_offset, ly_center, spring_amp, spring_len, horizontal=True, width=LINE_WIDTH)
+            r.draw_zigzag(rx + r_offset, ly_center, spring_amp, spring_len, horizontal = True, width = LINE_WIDTH)
             r_offset += OP_LENGTH
             
         if self.right_ops["Solenoid"].get():
-            r.draw_rect(rx + r_offset, OP_Y_TOP, rx + r_offset + OP_LENGTH, OP_Y_BOT, width=LINE_WIDTH)
-            r.draw_line(rx + r_offset, OP_Y_TOP, rx + r_offset + OP_LENGTH, OP_Y_BOT, width=LINE_WIDTH)
+            r.draw_rect(rx + r_offset, OP_Y_TOP, rx + r_offset + OP_LENGTH, OP_Y_BOT, width = LINE_WIDTH)
+            r.draw_line(rx + r_offset, OP_Y_TOP, rx + r_offset + OP_LENGTH, OP_Y_BOT, width = LINE_WIDTH)
             r_offset += OP_LENGTH
             
         if self.right_ops["Pilot"].get():
@@ -887,7 +941,7 @@ class PneumaticDesignerApp:
                 (rx + r_offset, ly_center), 
                 (rx + r_offset + S_15, ly_center - S_10), 
                 (rx + r_offset + S_15, ly_center + S_10)
-            ], width=LINE_WIDTH)
+            ], width = LINE_WIDTH)
             r_offset += S_15
             
         if self.right_ops["Detent"].get():
@@ -898,13 +952,13 @@ class PneumaticDesignerApp:
             notch_end_x = center_x_notch + S_5
             notch_y_peak = OP_Y_TOP + S_5
 
-            r.draw_line(dx1, OP_Y_TOP, dx1, OP_Y_BOT, width=LINE_WIDTH)
-            r.draw_line(dx2, OP_Y_TOP, dx2, OP_Y_BOT, width=LINE_WIDTH)
-            r.draw_line(dx1, OP_Y_BOT, dx2, OP_Y_BOT, width=LINE_WIDTH)
-            r.draw_line(dx1, OP_Y_TOP, notch_start_x, OP_Y_TOP, width=LINE_WIDTH)
-            r.draw_line(notch_end_x, OP_Y_TOP, dx2, OP_Y_TOP, width=LINE_WIDTH)
-            r.draw_line(notch_start_x, OP_Y_TOP, center_x_notch, notch_y_peak, width=LINE_WIDTH)
-            r.draw_line(center_x_notch, notch_y_peak, notch_end_x, OP_Y_TOP, width=LINE_WIDTH)
+            r.draw_line(dx1, OP_Y_TOP, dx1, OP_Y_BOT, width = LINE_WIDTH)
+            r.draw_line(dx2, OP_Y_TOP, dx2, OP_Y_BOT, width = LINE_WIDTH)
+            r.draw_line(dx1, OP_Y_BOT, dx2, OP_Y_BOT, width = LINE_WIDTH)
+            r.draw_line(dx1, OP_Y_TOP, notch_start_x, OP_Y_TOP, width = LINE_WIDTH)
+            r.draw_line(notch_end_x, OP_Y_TOP, dx2, OP_Y_TOP, width = LINE_WIDTH)
+            r.draw_line(notch_start_x, OP_Y_TOP, center_x_notch, notch_y_peak, width = LINE_WIDTH)
+            r.draw_line(center_x_notch, notch_y_peak, notch_end_x, OP_Y_TOP, width = LINE_WIDTH)
             r_offset += OP_LENGTH
             
         if self.right_ops["Lever"].get():
@@ -919,19 +973,20 @@ class PneumaticDesignerApp:
             p_outer_bot = (rx + r_offset + w_bot, lever_bot)
             p_outer_top = (rx + r_offset + w_top, lever_top)
             
-            r.draw_polygon([p_wall_top, p_wall_bot, p_outer_bot, p_outer_top], width=LINE_WIDTH)
+            r.draw_polygon([p_wall_top, p_wall_bot, p_outer_bot, p_outer_top], width = LINE_WIDTH)
             
             vx = p_outer_top[0] - p_outer_bot[0] 
             vy = p_outer_top[1] - p_outer_bot[1]
             
-            v_len = math.sqrt(vx*vx + vy*vy)
+            v_len = math.sqrt(vx * vx + vy * vy)
             if v_len > 1e-6:
-                nx, ny = vx/v_len, vy/v_len
+                nx, ny = vx / v_len, vy / v_len
                 handle_len = 25 * scale
                 hx, hy = p_outer_top[0] + nx * handle_len, p_outer_top[1] + ny * handle_len
-                r.draw_line(p_outer_top[0], p_outer_top[1], hx, hy, width=LINE_WIDTH)
-                r.draw_circle(hx, hy, S_5, width=LINE_WIDTH)
+                r.draw_line(p_outer_top[0], p_outer_top[1], hx, hy, width = LINE_WIDTH)
+                r.draw_circle(hx, hy, S_5, width = LINE_WIDTH)
             r_offset += w_top
+
 
     def refresh_preview(self):
         self.canvas.delete("all")
@@ -940,52 +995,54 @@ class PneumaticDesignerApp:
         if w < 10: 
             w, h = 400, 300
         renderer = CanvasRenderer(self.canvas)
-        self.draw_symbol_logic(renderer, w/2, h/2, scale=self.zoom_level.get())
+        self.draw_symbol_logic(renderer, w / 2, h / 2, scale = self.zoom_level.get())
+
 
     def save_svg(self):
         invalid = self.validate_all_state_inputs()
         if invalid:
-            if not messagebox.askyesno("Invalid inputs","Some inputs invalid. Continue export?"): 
+            if not messagebox.askyesno("Invalid inputs", "Some inputs invalid. Continue export?"): 
                 return
-        filename = filedialog.asksaveasfilename(defaultextension=".svg", filetypes=[("SVG files","*.svg"),("All files","*.*")])
+        filename = filedialog.asksaveasfilename(defaultextension = ".svg", filetypes = [("SVG files", "*.svg"), ("All files", "*.*")])
         if not filename: 
             return
         svg_r = SvgRenderer()
-        glue_points=[]
-        self.draw_symbol_logic(svg_r, 300, 200, scale=1.0, collect_glue_points=glue_points)
-        bx,by,bX,bY = svg_r.get_bounds()
+        glue_points = []
+        self.draw_symbol_logic(svg_r, 300, 200, scale = 1.0, collect_glue_points = glue_points)
+        bx, by, bX, bY = svg_r.get_bounds()
         padding = SVG_PADDING
         view_x = bx - padding
         view_y = by - padding
-        view_w = (bX - bx) + 2*padding
-        view_h = (bY - by) + 2*padding
-        content = svg_r.get_svg(view_box=(view_x, view_y, view_w, view_h))
+        view_w = (bX - bx) + 2 * padding
+        view_h = (bY - by) + 2 * padding
+        content = svg_r.get_svg(view_box = (view_x, view_y, view_w, view_h))
         try:
-            with open(filename, "w", encoding="utf-8") as f: 
+            with open(filename, "w", encoding = "utf-8") as f: 
                 f.write(content)
-            logger.info("Saved SVG: %s (view_box=(%.2f,%.2f,%.2f,%.2f))", filename, view_x, view_y, view_w, view_h)
-            messagebox.showinfo("Success","SVG saved.")
+            logger.info("Saved SVG: %s (view_box = (%.2f, %.2f, %.2f, %.2f))", filename, view_x, view_y, view_w, view_h)
+            messagebox.showinfo("Success", "SVG saved.")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save: {e}")
+
 
     def save_odg(self):
         invalid = self.validate_all_state_inputs()
         if invalid:
-            if not messagebox.askyesno("Invalid inputs","Some inputs invalid. Continue export?"): 
+            if not messagebox.askyesno("Invalid inputs", "Some inputs invalid. Continue export?"): 
                 return
-        filename = filedialog.asksaveasfilename(defaultextension=".odg", filetypes=[("LibreOffice Draw","*.odg"),("All files","*.*")])
+        filename = filedialog.asksaveasfilename(defaultextension = ".odg", filetypes = [("LibreOffice Draw", "*.odg"), ("All files", "*.*")])
         if not filename: 
             return
         # compute bounds using SvgRenderer (same absolute coordinates)
         svg_r = SvgRenderer()
-        glue_points=[]
-        self.draw_symbol_logic(svg_r, 300, 200, scale=1.0, collect_glue_points=glue_points)
-        min_x,min_y,max_x,max_y = svg_r.get_bounds()
+        glue_points = []
+        self.draw_symbol_logic(svg_r, 300, 200, scale = 1.0, collect_glue_points = glue_points)
+        min_x, min_y, max_x, max_y = svg_r.get_bounds()
         padding = SVG_PADDING
         view_x = min_x - padding
         view_y = min_y - padding
-        view_w = (max_x - min_x) + 2*padding
-        view_h = (max_y - min_y) + 2*padding
+        view_w = (max_x - min_x) + 2 * padding
+        view_h = (max_y - min_y) + 2 * padding
         try:
             self._write_odg_native(filename, glue_points, view_x, view_y, view_w, view_h)
             messagebox.showinfo("Success", f"Saved {os.path.basename(filename)}")
@@ -994,103 +1051,104 @@ class PneumaticDesignerApp:
             logger.exception("Failed to write ODG")
             messagebox.showerror("Error", f"Failed to save ODG: {e}")
 
+
     def _write_odg_native(self, odg_path, glue_points, view_x, view_y, view_w, view_h):
         px_to_cm = 2.54 / DPI_DEFAULT
         odf = OdfRenderer(view_x, view_y, view_w, view_h, px_to_cm)
         
         # 1. Draw the actual geometry
-        self.draw_symbol_logic(odf, 300, 200, scale=1.0)
+        self.draw_symbol_logic(odf, 300, 200, scale = 1.0)
 
         group_xml = odf.get_xml_fragment(glue_points)
 
-        content_xml = f'''<?xml version="1.0" encoding="UTF-8"?>
+        content_xml = f'''<?xml version = "1.0" encoding = "UTF-8"?>
 <office:document-content 
-  xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" 
-  xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" 
-  xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" 
-  xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" 
-  xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" 
-  xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" office:version="1.2">
+  xmlns:office = "urn:oasis:names:tc:opendocument:xmlns:office:1.0" 
+  xmlns:style = "urn:oasis:names:tc:opendocument:xmlns:style:1.0" 
+  xmlns:draw = "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" 
+  xmlns:text = "urn:oasis:names:tc:opendocument:xmlns:text:1.0" 
+  xmlns:fo = "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" 
+  xmlns:svg = "urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" office:version = "1.2">
     <office:font-face-decls>
       <style:font-face 
-        style:name="Arial" 
-        style:font-family="Arial" 
-        style:font-family-generic="swiss" 
-        style:font-pitch="variable"/>
+        style:name = "Arial" 
+        style:font-family = "Arial" 
+        style:font-family-generic = "swiss" 
+        style:font-pitch = "variable"/>
     </office:font-face-decls>
     <office:automatic-styles>
-      <style:style style:name="gr1" style:family="graphic">
+      <style:style style:name = "gr1" style:family = "graphic">
         <style:graphic-properties 
-          draw:stroke="solid" 
-          svg:stroke-width="0.05cm" 
-          svg:stroke-color="#000000" 
-          draw:fill="none"/>
+          draw:stroke = "solid" 
+          svg:stroke-width = "0.05cm" 
+          svg:stroke-color = "#000000" 
+          draw:fill = "none"/>
       </style:style>
-      <style:style style:name="filled_black" style:family="graphic">
+      <style:style style:name = "filled_black" style:family = "graphic">
         <style:graphic-properties 
-          draw:fill="solid" 
-          draw:fill-color="#000000" 
-          draw:stroke="solid" 
-          svg:stroke-color="#000000"/>
+          draw:fill = "solid" 
+          draw:fill-color = "#000000" 
+          draw:stroke = "solid" 
+          svg:stroke-color = "#000000"/>
       </style:style>
-      <style:style style:name="filled_white" style:family="graphic">
+      <style:style style:name = "filled_white" style:family = "graphic">
         <style:graphic-properties 
-          draw:fill="solid" 
-          draw:fill-color="#FFFFFF" 
-          draw:stroke="solid" 
-          svg:stroke-width="0.05cm" 
-          svg:stroke-color="#000000"/>
+          draw:fill = "solid" 
+          draw:fill-color = "#FFFFFF" 
+          draw:stroke = "solid" 
+          svg:stroke-width = "0.05cm" 
+          svg:stroke-color = "#000000"/>
       </style:style>
-      <style:style style:name="invisible" style:family="graphic">
+      <style:style style:name = "invisible" style:family = "graphic">
         <style:graphic-properties 
-          draw:stroke="none"
-          draw:fill="solid"
-          draw:fill-color="#ffffff" 
-          draw:opacity="1%"/>
+          draw:stroke = "none"
+          draw:fill = "solid"
+          draw:fill-color = "#ffffff" 
+          draw:opacity = "1%"/>
       </style:style>
-      <style:style style:name="P1" style:family="paragraph" style:class="text">
+      <style:style style:name = "P1" style:family = "paragraph" style:class = "text">
         <style:paragraph-properties 
-          fo:margin-top="0cm" 
-          fo:margin-bottom="0cm" 
-          fo:line-height="100%"/>
-        <style:text-properties fo:color="#000000" fo:font-size="0.2646cm" style:font-name="Arial"/>
+          fo:margin-top = "0cm" 
+          fo:margin-bottom = "0cm" 
+          fo:line-height = "100%"/>
+        <style:text-properties fo:color = "#000000" fo:font-size = "0.2646cm" style:font-name = "Arial"/>
       </style:style>
-      <style:style style:name="text_black10p" style:family="graphic">
+      <style:style style:name = "text_black10p" style:family = "graphic">
         <style:graphic-properties 
-          draw:fill="none" 
-          draw:stroke="none" 
-          style:vertical-pos="middle" 
-          style:textarea-horizontal-align="center"
-          fo:margin-top="0cm" 
-          fo:margin-bottom="0cm" 
-          fo:margin-left="0cm" 
-          fo:margin-right="0cm" 
-          fo:padding-top="0cm" 
-          fo:padding-bottom="0cm" 
-          fo:padding-left="0cm" 
-          fo:padding-right="0cm"
-          draw:auto-grow-height="false" 
-          draw:fit-to-size="true" 
-          style:shrink-to-fit="false"/>
+          draw:fill = "none" 
+          draw:stroke = "none" 
+          style:vertical-pos = "middle" 
+          style:textarea-horizontal-align = "center"
+          fo:margin-top = "0cm" 
+          fo:margin-bottom = "0cm" 
+          fo:margin-left = "0cm" 
+          fo:margin-right = "0cm" 
+          fo:padding-top = "0cm" 
+          fo:padding-bottom = "0cm" 
+          fo:padding-left = "0cm" 
+          fo:padding-right = "0cm"
+          draw:auto-grow-height = "false" 
+          draw:fit-to-size = "true" 
+          style:shrink-to-fit = "false"/>
         <style:text-properties 
-          style:font-name="Arial" 
-          fo:font-size="8pt" 
-          fo:color="#000000"/>
+          style:font-name = "Arial" 
+          fo:font-size = "8pt" 
+          fo:color = "#000000"/>
       </style:style>
-      <style:style style:name="text_on_transparent" style:family="graphic">
+      <style:style style:name = "text_on_transparent" style:family = "graphic">
         <style:graphic-properties 
-          draw:fill="none" 
-          draw:stroke="none"/>
+          draw:fill = "none" 
+          draw:stroke = "none"/>
         <style:text-properties 
-          style:font-name="Arial" 
-          fo:font-size="8pt" 
-          fo:color="#000000"/>
+          style:font-name = "Arial" 
+          fo:font-size = "8pt" 
+          fo:color = "#000000"/>
         </style:style>
     </office:automatic-styles>
     <office:body>
       <office:drawing>
         <draw:page 
-          draw:name="page1">{group_xml}
+          draw:name = "page1">{group_xml}
         </draw:page>
       </office:drawing>
     </office:body>
@@ -1100,15 +1158,15 @@ class PneumaticDesignerApp:
             # The ODG specification requires the 'mimetype' entry to be the first
             # file in the archive and stored (no compression). Write it first
             # with ZIP_STORED, then write the rest.
-            zf.writestr("mimetype", "application/vnd.oasis.opendocument.graphics", compress_type=zipfile.ZIP_STORED)
+            zf.writestr("mimetype", "application/vnd.oasis.opendocument.graphics", compress_type = zipfile.ZIP_STORED)
             zf.writestr("content.xml", content_xml)
-            zf.writestr("META-INF/manifest.xml", '<?xml version="1.0" encoding="UTF-8"?><manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.2"><manifest:file-entry manifest:full-path="/" manifest:media-type="application/vnd.oasis.opendocument.graphics"/><manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/></manifest:manifest>')
+            zf.writestr("META-INF/manifest.xml", '<?xml version = "1.0" encoding = "UTF-8"?><manifest:manifest xmlns:manifest = "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version = "1.2"><manifest:file-entry manifest:full-path = "/" manifest:media-type = "application/vnd.oasis.opendocument.graphics"/><manifest:file-entry manifest:full-path = "content.xml" manifest:media-type = "text/xml"/></manifest:manifest>')
 
 
-if __name__ == "__main__":
+if __name__  == "__main__":
     log_level = logging.DEBUG
-    logging.basicConfig(level = log_level,
-                            format ='%(asctime)s [%(levelname)s] %(funcName)s (%(lineno)d): %(message)s',
+    logging.basicConfig(level = log_level, 
+                            format  = '%(asctime)s [%(levelname)s] %(funcName)s (%(lineno)d): %(message)s', 
                             datefmt = r'%H:%M:%S')
 
     root = tk.Tk()
