@@ -7,7 +7,6 @@ import logging
 from html import escape as escape_xml
 
 # Constants
-ANCHOR_RADIUS_BASE = 1.5
 SVG_PADDING = 0
 DPI_DEFAULT = 96.0
 
@@ -29,42 +28,45 @@ class GraphicRenderer:
 class CanvasRenderer(GraphicRenderer):
     def __init__(self, canvas):
         self.c = canvas
+
     def draw_line(self, x1, y1, x2, y2, **kwargs):
         width = kwargs.get('width', 2)
         self.c.create_line(x1, y1, x2, y2, width=width, fill="black")
+
     def draw_rect(self, x1, y1, x2, y2, **kwargs):
         width = kwargs.get('width', 2)
         self.c.create_rectangle(x1, y1, x2, y2, outline="black", width=width)
+
     def draw_polygon(self, points, **kwargs):
         width = kwargs.get('width', 2)
         flat = [coord for pt in points for coord in pt]
         self.c.create_polygon(flat, outline="black", width=width, fill="")
+
     def draw_polyline(self, points, **kwargs):
         width = kwargs.get('width', 2)
         flat = [coord for pt in points for coord in pt]
         self.c.create_line(flat, fill="black", width=width)
+
     def draw_circle(self, x, y, r, **kwargs):
         width = kwargs.get('width', 2)
         fill = kwargs.get('fill', 'black')
         self.c.create_oval(x-r, y-r, x+r, y+r, outline="black", width=width, fill=fill)
+
     def draw_text(self, x, y, text, font_size=10, **kwargs):
         # Support an align_text kwarg (uses tkinter anchors):
         # 'top' -> anchor 's' (text bottom at y), 'bottom' -> anchor 'n' (text top at y)
-        align = kwargs.get('align_text') or kwargs.get('anchor')
+        alignV = kwargs.get('align_text', "top")
         anchor = None
-        if align:
-            if align == 'top':
-                anchor = 's'
-            elif align == 'bottom':
-                anchor = 'n'
-            elif align in ('center', 'middle'):
-                anchor = 'center'
-            else:
-                anchor = align
-        if anchor:
+        if alignV == 'top':
+            anchor = 'sw'
+        elif alignV == 'bottom':
+            anchor = 'nw'
+
+        if anchor is not None:
             self.c.create_text(x, y, text=text, fill="black", font=("Arial", int(font_size)), anchor=anchor)
         else:
             self.c.create_text(x, y, text=text, fill="black", font=("Arial", int(font_size)))
+
     def draw_zigzag(self, x, y, zig_dim, length, horizontal=False, **kwargs):
         width = kwargs.get('width', 2)
         num_steps = 5
@@ -78,9 +80,14 @@ class CanvasRenderer(GraphicRenderer):
             else:
                 pts.extend([x + offset, y + pos])
         self.c.create_line(pts, width=width, fill="black")
+
     def draw_arrow(self, x1, y1, x2, y2, **kwargs):
         width = kwargs.get('width', 2)
-        self.c.create_line(x1, y1, x2, y2, arrow=tk.LAST, width=width, fill="black")
+
+        arrow_len = max(7 * width, 3)
+        arrowshape = (arrow_len, arrow_len, arrow_len / 3)
+
+        self.c.create_line(x1, y1, x2, y2, arrow=tk.LAST, width=width, arrowshape=arrowshape, fill="black")
 
     def draw_t_stop(self, x, y, direction='up', **kwargs):
         size = kwargs.get('size', 5)
@@ -99,6 +106,7 @@ class SvgRenderer(GraphicRenderer):
         self.min_y = float('inf')
         self.max_x = float('-inf')
         self.max_y = float('-inf')
+
     def _update(self, x, y):
         if x < self.min_x: 
             self.min_x = x
@@ -108,6 +116,7 @@ class SvgRenderer(GraphicRenderer):
             self.min_y = y
         if y > self.max_y: 
             self.max_y = y
+
     def _update_bounds(self, x, y):
         if x < self.min_x: 
             self.min_x = x
@@ -117,35 +126,46 @@ class SvgRenderer(GraphicRenderer):
             self.min_y = y
         if y > self.max_y: 
             self.max_y = y
+
     def draw_rect(self, x1, y1, x2, y2, **kwargs):
         rx, ry = min(x1,x2), min(y1,y2)
         w, h = abs(x2-x1), abs(y2-y1)
         self.elements.append(f'<rect x="{rx}" y="{ry}" width="{w}" height="{h}" stroke="black" fill="none"/>')
         self._update(x1,y1) 
         self._update(x2,y2)
+
     def draw_line(self, x1, y1, x2, y2, **kwargs):
         self.elements.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="black"/>')
         self._update(x1,y1)
         self._update(x2,y2)
+
     def draw_circle(self, x, y, r, **kwargs):
         fill = kwargs.get('fill', 'none')
         self.elements.append(f'<circle cx="{x}" cy="{y}" r="{r}" stroke="black" fill="{fill}"/>')
         self._update(x-r,y-r)
         self._update(x+r,y+r)
+
     def draw_polygon(self, points, **kwargs):
         pts = " ".join([f"{x},{y}" for (x,y) in points])
         fill = kwargs.get('fill', 'none')
         self.elements.append(f'<polygon points="{pts}" stroke="black" fill="{fill}"/>')
         for x,y in points: 
             self._update(x,y)
+
     def draw_polyline(self, points, **kwargs):
         pts = " ".join([f"{x},{y}" for (x,y) in points])
         self.elements.append(f'<polyline points="{pts}" stroke="black" fill="none"/>')
         for x,y in points: 
             self._update(x,y)
+
     def draw_text(self, x, y, text, font_size=10, **kwargs):
-        self.elements.append(f'<text x="{x}" y="{y}" font-size="{font_size}">{escape_xml(text)}</text>')
+        alignV = kwargs.get('align_text', 'bottom')
+        if alignV == 'bottom':
+            self.elements.append(f'<text x="{x}" y="{y}" dominant-baseline="hanging" font-size="{font_size}">{escape_xml(text)}</text>')
+        else:
+            self.elements.append(f'<text x="{x}" y="{y}" font-size="{font_size}">{escape_xml(text)}</text>')
         self._update(x,y)
+
     def draw_zigzag(self, x, y, zig_dim, length, horizontal=False, **kwargs):
         num_steps = 5
         step_size = length / num_steps
@@ -159,6 +179,7 @@ class SvgRenderer(GraphicRenderer):
             self._update(curr_x, curr_y)
         pts_str = " ".join(pts_list)
         self.elements.append(f'<polyline points="{pts_str}" stroke="black" fill="none"/>')
+
     def draw_arrow(self, x1, y1, x2, y2, **kwargs):
         width = kwargs.get('width', 2)
         # Use underlying draw methods so bounds are updated automatically
@@ -188,10 +209,12 @@ class SvgRenderer(GraphicRenderer):
         else:
             self.draw_line(x, y, x, y+size, width=width)
             self.draw_line(x-size, y+size, x+size, y+size, width=width)
+
     def get_bounds(self):
         if self.min_x == float('inf'):
             return (0,0,100,100)
         return (self.min_x, self.min_y, self.max_x, self.max_y)
+    
     def get_svg(self, view_box=None):
         if view_box:
             vx, vy, vw, vh = view_box
@@ -290,20 +313,22 @@ class OdfRenderer(GraphicRenderer):
         
         self.elements.append(el)
 
-    def draw_text(self, x, y, text, **kwargs):
+    def draw_text(self, x, y, text, font_size=10, **kwargs):
+        text_height_cm = self._px_to_cm(font_size)
+        text_width_cm = text_height_cm * 0.7
         alignV = kwargs.get('align_text', 'top')
         if alignV == 'top':
-            y_cm = self._px_to_cm(y - self.view_y)
+            y_cm = self._px_to_cm(y - self.view_y) - text_height_cm
         else:
-            y_cm = self._px_to_cm(y - self.view_y) - self._px_to_cm(20)
+            y_cm = self._px_to_cm(y - self.view_y) 
         x_cm = self._px_to_cm(x - self.view_x)
 
-        logger.debug(f'Text {text} at {x_cm:.2f}cm,{y_cm:.2f}cm aligment {alignV}')
+        logger.debug(f'Text {text} at {x_cm:.2f}cm,{y_cm:.2f}cm aligment {alignV} width {text_width_cm}cm height {text_height_cm:.4f}cm')
 
         el = (f'<draw:frame '
-                f'draw:style-name="text_on_transparent" '
+                f'draw:style-name="text_black10p" '
                 f'svg:x="{x_cm:.4f}cm" svg:y="{y_cm:.4f}cm" '
-                f'svg:width="0.2cm" svg:height="0.4cm"> '
+                f'svg:width="{text_width_cm}cm" svg:height="{text_height_cm:.4f}cm"> '
                 f'<draw:text-box> '
                   f'<text:p text:style-name="P1">'
                     f'{escape_xml(str(text))}'
@@ -449,6 +474,7 @@ class PneumaticDesignerApp:
         self.num_states = tk.IntVar(value=2)
         self.pid_valve_type = tk.StringVar(value="L-Type") # For P&ID 3-way
         self.zoom_level = tk.DoubleVar(value=1.0)
+        self.show_pin_number = tk.BooleanVar(value = False)
         
         self.left_ops = {k: tk.BooleanVar() for k in ["Spring","Solenoid","Lever","Pilot","Detent"]}
         self.right_ops = {k: tk.BooleanVar() for k in ["Spring","Solenoid","Lever","Pilot","Detent"]}
@@ -488,14 +514,18 @@ class PneumaticDesignerApp:
         self.pid_type_cb.grid(row=3, column=1, sticky="e")
         self.pid_type_cb.bind("<<ComboboxSelected>>", lambda e: self.refresh_preview())
 
+        # Display zoom
         ttk.Label(control_panel, text="Zoom Level:").grid(row=4, column=0, sticky="w", pady=5)
         tk.Scale(control_panel, variable=self.zoom_level, from_=0.5, to=3.0, resolution=0.1, orient=tk.HORIZONTAL, length=100, command=lambda v: self.refresh_preview()).grid(row=4,column=1,sticky="e")
 
-        ttk.Separator(control_panel, orient='horizontal').grid(row=5, column=0, columnspan=2, sticky="ew", pady=10)
+        # Pin number export option
+        ttk.Checkbutton(control_panel, text="Show pin number", variable=self.show_pin_number, command=self.refresh_preview).grid(row=5, column=0, sticky="e")
+
+        ttk.Separator(control_panel, orient='horizontal').grid(row=6, column=0, columnspan=2, sticky="ew", pady=10)
         
         # Operators
         op_frame = ttk.Frame(control_panel)
-        op_frame.grid(row=6, column=0, columnspan=2, sticky="ew")
+        op_frame.grid(row=7, column=0, columnspan=2, sticky="ew")
         ttk.Label(op_frame, text="Left Operator").grid(row=0, column=0, sticky="w")
         ttk.Label(op_frame, text="Right Operator").grid(row=0, column=1, sticky="w")
         r_idx = 1
@@ -504,19 +534,15 @@ class PneumaticDesignerApp:
             ttk.Checkbutton(op_frame, text=name, variable=self.right_ops[name], command=self.refresh_preview).grid(row=r_idx, column=1, sticky="w")
             r_idx += 1
 
-        ttk.Separator(control_panel, orient='horizontal').grid(row=7, column=0, columnspan=2, sticky="ew", pady=10)
+        ttk.Separator(control_panel, orient='horizontal').grid(row=8, column=0, columnspan=2, sticky="ew", pady=10)
 
         self.state_input_frame = ttk.LabelFrame(control_panel, text="Flow Paths (e.g. 1-2, 3-T)")
-        self.state_input_frame.grid(row=8,column=0,columnspan=2,sticky="ew", pady=5)
+        self.state_input_frame.grid(row=9,column=0,columnspan=2,sticky="ew", pady=5)
         help_lbl = ttk.Label(control_panel, text="Format: '1-2' (connect),\n'1-T' (block).\nSeparate with commas.", font=("Arial",8), foreground="gray")
-        help_lbl.grid(row=9,column=0,columnspan=2)
+        help_lbl.grid(row=10,column=0,columnspan=2)
         btn_frame = ttk.Frame(control_panel)
-        btn_frame.grid(row=10,column=0,columnspan=2,pady=20)
-
-        
-        #self.state_input_frame = ttk.LabelFrame(control_panel, text="Flow Paths", padding="5")
-        #self.state_input_frame.grid(row=8,column=0,columnspan=2,sticky="ew", pady=5)
-        
+        btn_frame.grid(row=11,column=0,columnspan=2,pady=20)
+       
         btn_frame = ttk.Frame(control_panel)
         btn_frame.grid(row=11,column=0,columnspan=2,pady=20)
         ttk.Button(btn_frame, text="Save SVG", command=self.save_svg).pack(side=tk.LEFT, padx=5)
@@ -707,6 +733,7 @@ class PneumaticDesignerApp:
         BOX_SIZE = 60 * scale
         LINE_WIDTH = 1 * scale
         FONT_SIZE = 10 * scale
+        PORT_SIZE = 10 * scale
         
         n_states = self.num_states.get()
         total_w = BOX_SIZE * n_states
@@ -749,21 +776,17 @@ class PneumaticDesignerApp:
         
         for p in range(1, self.num_ports.get() + 1):
             px, py = self._get_port_coords(p, ref_box_x, top_y, BOX_SIZE, BOX_SIZE)
-            
-            if py > center_y:
-                lbl_y = py + (15*scale)
-                align_text = 'bottom'
-            else:
-                lbl_y = py - (15*scale)
-                align_text = 'top'
-            
-            r.draw_text(px, lbl_y, str(p), font_size=FONT_SIZE, align_text=align_text)
-            
-            ext_y = py + (10*scale) if py > center_y else py - (10*scale)
-            r.draw_line(px, py, px, ext_y, width=LINE_WIDTH)
 
-            #ANCHOR_RADIUS = ANCHOR_RADIUS_BASE * scale
-            #r.draw_circle(px, ext_y, ANCHOR_RADIUS, width=0.5*scale)
+            if self.show_pin_number.get():
+                if py > center_y:
+                    align_text = 'bottom'
+                else:
+                    align_text = 'top'
+                
+                r.draw_text(px, py, str(p), font_size=FONT_SIZE, align_text=align_text)
+            
+            ext_y = py + PORT_SIZE if py > center_y else py - PORT_SIZE
+            r.draw_line(px, py, px, ext_y, width=LINE_WIDTH)
             
             if collect_glue_points is not None:
                 collect_glue_points.append((px, ext_y))
@@ -1026,31 +1049,43 @@ class PneumaticDesignerApp:
           draw:opacity="1%"/>
       </style:style>
       <style:style style:name="P1" style:family="paragraph" style:class="text">
-        <style:text-properties 
-          fo:color="#000000" 
-          fo:font-size="8pt" 
-          style:font-name="Arial"/>
+        <style:paragraph-properties 
+          fo:margin-top="0cm" 
+          fo:margin-bottom="0cm" 
+          fo:line-height="100%"/>
+        <style:text-properties fo:color="#000000" fo:font-size="0.2646cm" style:font-name="Arial"/>
       </style:style>
-      <style:style style:name="text_black8p" style:family="graphic">
+      <style:style style:name="text_black10p" style:family="graphic">
         <style:graphic-properties 
           draw:fill="none" 
           draw:stroke="none" 
           style:vertical-pos="middle" 
-          style:textarea-horizontal-align="center"/>
+          style:textarea-horizontal-align="center"
+          fo:margin-top="0cm" 
+          fo:margin-bottom="0cm" 
+          fo:margin-left="0cm" 
+          fo:margin-right="0cm" 
+          fo:padding-top="0cm" 
+          fo:padding-bottom="0cm" 
+          fo:padding-left="0cm" 
+          fo:padding-right="0cm"
+          draw:auto-grow-height="false" 
+          draw:fit-to-size="true" 
+          style:shrink-to-fit="false"/>
         <style:text-properties 
           style:font-name="Arial" 
           fo:font-size="8pt" 
           fo:color="#000000"/>
       </style:style>
       <style:style style:name="text_on_transparent" style:family="graphic">
-      <style:graphic-properties
-        draw:fill="none"
-        draw:stroke="none"/>
-        <style:text-properties
-          style:font-name="Arial"
-          fo:font-size="8pt"
+        <style:graphic-properties 
+          draw:fill="none" 
+          draw:stroke="none"/>
+        <style:text-properties 
+          style:font-name="Arial" 
+          fo:font-size="8pt" 
           fo:color="#000000"/>
-      </style:style>
+        </style:style>
     </office:automatic-styles>
     <office:body>
       <office:drawing>
@@ -1070,13 +1105,11 @@ class PneumaticDesignerApp:
             zf.writestr("META-INF/manifest.xml", '<?xml version="1.0" encoding="UTF-8"?><manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.2"><manifest:file-entry manifest:full-path="/" manifest:media-type="application/vnd.oasis.opendocument.graphics"/><manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/></manifest:manifest>')
 
 
-
 if __name__ == "__main__":
     log_level = logging.DEBUG
-    logging.basicConfig(level=log_level, 
-                    format='%(asctime)s - %(levelname)s - %(funcName)s - %(message)s',
-                    datefmt='%S')
-    logger.setLevel(log_level)
+    logging.basicConfig(level = log_level,
+                            format ='%(asctime)s [%(levelname)s] %(funcName)s (%(lineno)d): %(message)s',
+                            datefmt = r'%H:%M:%S')
 
     root = tk.Tk()
     app = PneumaticDesignerApp(root)
